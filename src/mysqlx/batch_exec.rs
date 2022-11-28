@@ -1,0 +1,290 @@
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
+use sqlx::mysql::MySqlArguments;
+use sqlx::MySqlPool;
+use thiserror::Error;
+use uuid::Uuid;
+
+#[derive(Debug)]
+pub struct SqlEntity {
+    key:  String,
+    idx:  u16,
+    sql:  String,
+    args: Option<MySqlArguments>, /* args在执行写入数据库时会消耗掉, 使用Option的功能来进行处理. */
+}
+
+impl std::fmt::Display for SqlEntity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "key:{}, idx:{}, sql:{}",
+            self.key, self.idx, self.sql
+        ))
+    }
+}
+
+impl SqlEntity {
+    pub fn new(key: &str, sql: &str, args: MySqlArguments) -> SqlEntity {
+        SqlEntity {
+            key:  key.to_owned(),
+            idx:  0,
+            sql:  sql.to_owned(),
+            args: Some(args),
+        }
+    }
+
+    // pub fn add_arg<T>(&mut self, value: T)
+    // where
+    //     T: Send + for<'a> Encode<'a, MySql> + Type<MySql>,
+    // {
+    //     if let Some(args) = self.args.as_mut() {
+    //         args.add(value);
+    //     }
+    // }
+}
+
+type Result = std::result::Result<BatchExecInfo, BatchExecError>;
+
+/// RA: rows affected
+/// C: count
+/// L: limit size
+#[derive(Debug, Default)]
+pub struct BatchExecInfo {
+    is_exec:       bool,
+    limit_size:    u16,
+    entity_count:  u16,
+    rows_affected: u64,
+    elapsed:       Duration,
+}
+
+impl std::fmt::Display for BatchExecInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_exec {
+            f.write_fmt(format_args!(
+                "RA:{}/C:{}(L:{}), use: {:?}",
+                self.rows_affected, self.entity_count, self.limit_size, self.elapsed
+            ))
+        } else {
+            f.write_fmt(format_args!(
+                "*Not Exec* C:{}/L:{}",
+                self.entity_count, self.limit_size,
+            ))
+        }
+    }
+}
+
+impl BatchExecInfo {
+    pub fn is_exec(&self) -> bool {
+        self.is_exec
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum BatchExecError {
+    #[error("{sql}, {err}")]
+    Query { sql: String, err: sqlx::Error },
+    #[error("{0}")]
+    Sqlx(#[from] sqlx::Error),
+}
+
+/// 只支持单线程
+pub struct BatchExec {
+    limit_size: u16,
+    entity_idx: u16,
+    entity_map: HashMap<String, SqlEntity>,
+}
+
+impl BatchExec {
+    pub fn new(limit_size: u16) -> BatchExec {
+        BatchExec {
+            limit_size,
+            entity_idx: 0,
+            entity_map: Default::default(),
+        }
+    }
+
+    pub fn add(&mut self, mut entity: SqlEntity) {
+        if entity.key.is_empty() {
+            entity.key = Uuid::new_v4().to_string();
+        }
+
+        self.entity_idx += 1;
+
+        entity.idx = self.entity_idx;
+
+        self.entity_map.insert(entity.key.clone(), entity);
+    }
+
+    #[inline]
+    fn sorted_entity_mut_vec(&mut self) -> Vec<&mut SqlEntity> {
+        let mut entity_vec = self
+            .entity_map
+            .values_mut()
+            .collect::<Vec<&mut SqlEntity>>();
+        entity_vec.sort_by(|a, b| a.idx.cmp(&b.idx));
+        entity_vec
+    }
+
+    async fn execute(&mut self, pool: &MySqlPool, exec_limit_size: u16) -> Result {
+        let start = Instant::now();
+        let mut exec_info = BatchExecInfo::default();
+
+        let entity_len = self.entity_map.len() as u16;
+
+        exec_info.limit_size = exec_limit_size;
+        exec_info.entity_count = entity_len;
+
+        if entity_len == 0 || entity_len < exec_limit_size {
+            return Ok(exec_info);
+        }
+
+        let sql_entity_vec = self.sorted_entity_mut_vec();
+
+        let mut transaction = pool.begin().await?;
+
+        let mut rows_affected = 0;
+        for SqlEntity { sql, args, .. } in sql_entity_vec {
+            let args = args.take().unwrap();
+            let result = sqlx::query_with(sql, args).execute(&mut transaction).await;
+            match result {
+                Ok(result) => {
+                    rows_affected += result.rows_affected();
+                },
+                Err(err) => {
+                    return Err(BatchExecError::Query {
+                        sql: sql.to_owned(),
+                        err,
+                    });
+                },
+            }
+        }
+        transaction.commit().await?;
+
+        self.entity_idx = 0;
+        self.entity_map.clear();
+
+        exec_info.is_exec = true;
+        exec_info.entity_count = entity_len;
+        exec_info.rows_affected = rows_affected;
+        exec_info.elapsed = start.elapsed();
+
+        Ok(exec_info)
+    }
+
+    pub async fn execute_limit(&mut self, pool: &MySqlPool) -> Result {
+        self.execute(pool, self.limit_size).await
+    }
+
+    pub async fn execute_all(&mut self, pool: &MySqlPool) -> Result {
+        self.execute(pool, 0).await
+    }
+
+    pub async fn execute_single(
+        pool: &MySqlPool,
+        mut sql_entity: SqlEntity,
+    ) -> std::result::Result<(), sqlx::Error> {
+        sqlx::query_with(&sql_entity.sql, sql_entity.args.take().unwrap())
+            .execute(pool)
+            .await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod botch_exec_tests {
+    use sqlx::Arguments;
+
+    use super::*;
+    use crate::mysqlx::MySqlPools;
+    use crate::mysqlx_test_pool::init_test_mysql_pools;
+
+    #[test]
+    fn test_batch_exec_info() {
+        println!("{}", BatchExecInfo::default());
+    }
+
+    #[test]
+    fn test_sql_entity_new() {
+        let mut args = MySqlArguments::default();
+        args.add(100i32);
+        args.add("aaaa");
+        SqlEntity::new("", "", args);
+    }
+
+    fn batch_exec() -> BatchExec {
+        let mut be = BatchExec::new(10);
+        // let sql = "UPDATE tmp.tbl_tmp SET v_v=? WHERE id=?";
+        let sql = "REPLACE INTO tmp.tbl_tmp(v_v,id) VALUES(?,?)";
+        let mut args = MySqlArguments::default();
+        args.add("v-v-1");
+        args.add(0i32);
+
+        let entity = SqlEntity::new("2", sql, args);
+        be.add(entity);
+
+        let mut args = MySqlArguments::default();
+        args.add("v-v-2");
+        args.add(1i32);
+        let entity = SqlEntity::new("2", sql, args);
+        be.add(entity);
+
+        let mut args = MySqlArguments::default();
+        args.add("v-v-3-2");
+        args.add(2i32);
+        let entity = SqlEntity::new("1", sql, args);
+        be.add(entity);
+
+        let mut args = MySqlArguments::default();
+        args.add("v-v-4-2");
+        args.add(3i32);
+        let entity = SqlEntity::new("2", sql, args);
+        be.add(entity);
+
+        let mut args = MySqlArguments::default();
+        args.add("v-v-5-2");
+        args.add(4i32);
+        let entity = SqlEntity::new("3", sql, args);
+        be.add(entity);
+
+        // let entity = SqlEntity::new("4", "UPDATE tmp.tbl_tmp SET v_v='ccc'", Default::default());
+        // be.add(entity);
+
+        be
+    }
+
+    #[test]
+    fn test_batch_exec_new() {
+        let be = batch_exec();
+        for (k, v) in &be.entity_map {
+            println!("## {:?}, {}", k, v);
+        }
+        let mut a = Some(1);
+        a.take();
+    }
+
+    #[test]
+    fn test_sorted_entity_vec() {
+        let mut be = batch_exec();
+        let entity_vec = be.sorted_entity_mut_vec();
+        println!("# len {:?}", entity_vec.len());
+        for e in entity_vec {
+            println!("## {:?}, {}", e.key, e);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batch_exec_execute() {
+        init_test_mysql_pools();
+        let pool = MySqlPools::default();
+        let mut be = batch_exec();
+        let result = be.execute_all(&pool).await;
+        match result {
+            Ok(info) => {
+                println!("Exec info: {}", info);
+            },
+            Err(err) => {
+                eprintln!("Exec err: {}", err);
+            },
+        }
+    }
+}
