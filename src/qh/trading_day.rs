@@ -42,11 +42,11 @@ impl From<TradingDayDbItem> for Ymd {
 
 #[derive(Debug)]
 struct DayInfo {
-    is_td:     bool,  // 是否交易日
-    prev_idx:  usize, // 前一交易日index
-    idx:       usize, /* 非交易日:所属交易日的index,和next_idx相同. 交易日:在列表中的index */
-    next_idx:  usize, // 下一交易日index
-    has_night: bool,  // 是否有夜盘
+    is_td: bool,     // 是否交易日
+    prev_idx: usize, // 前一交易日index
+    idx: usize,      /* 非交易日:所属交易日的index,和next_idx相同. 交易日:在列表中的index */
+    next_idx: usize, // 下一交易日index
+    has_night: bool, // 是否有夜盘
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -59,7 +59,7 @@ pub enum TradingDayUtilInitError {
 
 #[derive(Debug, Default)]
 pub struct TradingDayUtil {
-    td_vec:       Vec<Ymd>,              // 交易日列表
+    td_vec: Vec<Ymd>,                    // 交易日列表
     day_info_map: HashMap<u32, DayInfo>, // day, idx
 }
 
@@ -149,10 +149,10 @@ impl TradingDayUtil {
                 idx -= 1;
                 let n_idx = idx + 1;
                 DayInfo {
-                    is_td:     false,
-                    prev_idx:  idx,
-                    idx:       n_idx,
-                    next_idx:  n_idx,
+                    is_td: false,
+                    prev_idx: idx,
+                    idx: n_idx,
+                    next_idx: n_idx,
                     has_night: false,
                 }
             });
@@ -464,8 +464,8 @@ mod tests {
         for _ in 0..10 {
             handles.push(tokio::spawn(async move {
                 let tdu = TradingDayUtil::current();
-                let mut date = NaiveDate::from_ymd(2017, 1, 3);
-                let e_date = NaiveDate::from_ymd(2022, 12, 30);
+                let mut date = NaiveDate::from_ymd_opt(2017, 1, 3).unwrap();
+                let e_date = NaiveDate::from_ymd_opt(2022, 12, 30).unwrap();
                 while date <= e_date {
                     let yyyymmdd = Ymd::from(&date).yyyymmdd;
 
@@ -518,7 +518,10 @@ mod tests {
         TradingDayUtil::init(&*MySqlPools::default()).await.unwrap();
         let tdu = TradingDayUtil::current();
         for day in 6..=9 {
-            let datetime = NaiveDate::from_ymd(2022, 8, day).and_hms(2, 0, 0);
+            let datetime = NaiveDate::from_ymd_opt(2022, 8, day)
+                .unwrap()
+                .and_hms_opt(2, 0, 0)
+                .unwrap();
             let td = tdu.trading_day_from_datetime(&datetime).unwrap();
             println!("{} {:?}", datetime, td);
         }
@@ -577,16 +580,16 @@ mod tests {
 
     #[test]
     fn test_naive_date() {
-        let mut date = NaiveDate::from_ymd(2022, 6, 8);
+        let mut date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
         for _ in 0..=30 {
             date = date + Duration::days(1);
             println!("# {:?}", date.format("%Y-%m-%d").to_string());
         }
-        let date = NaiveDate::from_ymd(2022, 6, 8);
+        let date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
         let date_str = date.format("%Y-%m-%d").to_string();
-        let date2 = NaiveDate::from_ymd(2022, 6, 8);
+        let date2 = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
         let date2_str = date2.format("%Y-%m-%d").to_string();
-        let date3 = NaiveDate::from_ymd(2022, 6, 9);
+        let date3 = NaiveDate::from_ymd_opt(2022, 6, 9).unwrap();
         let date3_str = date3.format("%Y-%m-%d").to_string();
 
         println!("{}=={} {}", date_str, date2_str, date == date2);

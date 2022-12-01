@@ -101,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_chrono() {
-        let date = NaiveDate::from_ymd(2022, 6, 13);
-        let time = NaiveTime::from_hms(1, 1, 0);
+        let date = NaiveDate::from_ymd_opt(2022, 6, 13).unwrap();
+        let time = NaiveTime::from_hms_opt(1, 1, 0).unwrap();
         let datetime = date.and_time(time);
         let hhmmss = Hms::from(&time).hhmmss;
         for i in 0..9 {
@@ -113,7 +113,7 @@ mod tests {
                 Weekday::Fri if hhmmss > 210000 => datetime + Duration::days(7),
                 Weekday::Sat | Weekday::Sun => {
                     datetime + Duration::days(12 - number_from_monday as i64)
-                },
+                }
                 _ => datetime + Duration::days(5 - number_from_monday as i64),
             };
             let start_date1 = end_date - Duration::days(7);
@@ -134,8 +134,8 @@ mod tests {
 
     fn test_time_range_sub(breed: &str, tx_ranges: &str) {
         println!("=== {} {}===", breed, tx_ranges);
-        let mut sdate = NaiveDate::from_ymd(2021, 12, 31);
-        let edate = NaiveDate::from_ymd(2022, 12, 30);
+        let mut sdate = NaiveDate::from_ymd_opt(2021, 12, 31).unwrap();
+        let edate = NaiveDate::from_ymd_opt(2022, 12, 30).unwrap();
         let trd = TxTimeRangeData::current();
         let trh_vec = trd.time_range_vec(breed).unwrap();
         let start_time = NaiveTime::from(&trh_vec.first().unwrap().start);

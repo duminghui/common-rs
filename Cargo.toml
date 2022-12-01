@@ -6,21 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = { version = "0.4.22", default-features = false }
-futures = { version = "0.3.24", default-features = false }
+chrono = { version = "0.4.23", default-features = false }
+futures = { version = "0.3.25", default-features = false }
 lazy_static = "1.4.0"
 log = "0.4.17"
 rolling-file = "0.1.0"
-rust_decimal = { version = "1.26.1", default-features = false }
-serde = { version = "1.0.144", default-features = false, features = ["derive"] }
-serde_yaml = "0.9.11"
-sqlx = { version = "0.6.1", default-features = false, features = ["macros", "runtime-tokio-rustls", "mysql", "chrono", "decimal"] }
-thiserror = "1.0.35"
-time = { version = "0.3.14", default-features = false, features = ["macros"] }
-tokio = { version = "1.21.1", features = ["macros", "rt-multi-thread"] }
-tracing = { version = "0.1.36", default-features = false }
+rust_decimal = { version = "1.27.0", default-features = false }
+serde = { version = "1.0.148", default-features = false, features = ["derive"] }
+serde_yaml = "0.9.14"
+sqlx = { version = "0.6.2", default-features = false, features = ["macros", "runtime-tokio-rustls", "mysql", "chrono", "decimal"] }
+thiserror = "1.0.37"
+time = { version = "0.3.17", default-features = false, features = ["macros"] }
+tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
+tracing = { version = "0.1.37", default-features = false }
 tracing-appender = "0.2.2"
 tracing-error = { version = "0.2.0", default-features = false }
 # tracing-subscriber = { version = "0.3.11", default-features = false, features = ["tracing-log", "ansi", "local-time"] }
-tracing-subscriber = { version = "0.3.15", default-features = false, features = ["tracing-log", "ansi", "time"] }
-uuid = { version = "1.1.2", default-features = false, features = ["v4", "fast-rng"] }
+tracing-subscriber = { version = "0.3.16", default-features = false, features = ["tracing-log", "ansi", "time"] }
+uuid = { version = "1.2.2", default-features = false, features = ["v4", "fast-rng"] }

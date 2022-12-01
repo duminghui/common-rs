@@ -14,14 +14,14 @@ use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
 #[derive(Debug, Clone)]
 pub(crate) struct TimeRangeHms {
     pub start: Hms,
-    pub end:   Hms,
+    pub end: Hms,
 }
 
 impl TimeRangeHms {
     pub fn new(shhmmss: u32, ehhmmss: u32) -> TimeRangeHms {
         TimeRangeHms {
             start: Hms::from_hhmmss(shhmmss),
-            end:   Hms::from_hhmmss(ehhmmss),
+            end: Hms::from_hhmmss(ehhmmss),
         }
     }
 
@@ -56,8 +56,8 @@ impl fmt::Display for TimeRangeHms {
 #[derive(Copy, Clone, Eq)]
 pub struct Hms {
     pub hhmmss: u32,
-    pub hhmm:   u16,
-    pub hour:   u8,
+    pub hhmm: u16,
+    pub hour: u8,
     pub minute: u8,
     pub second: u8,
 }
@@ -116,7 +116,7 @@ impl PartialOrd for Hms {
 
 impl From<&Hms> for NaiveTime {
     fn from(hms: &Hms) -> NaiveTime {
-        NaiveTime::from_hms(hms.hour as u32, hms.minute as u32, hms.second as u32)
+        NaiveTime::from_hms_opt(hms.hour as u32, hms.minute as u32, hms.second as u32).unwrap()
     }
 }
 
@@ -129,9 +129,9 @@ impl<T: Timelike> From<&T> for Hms {
 #[derive(Copy, Clone)]
 pub struct Ymd {
     pub yyyymmdd: u32,
-    pub year:     u16,
-    pub month:    u8,
-    pub day:      u8,
+    pub year: u16,
+    pub month: u8,
+    pub day: u8,
 }
 
 impl Ymd {
@@ -172,7 +172,7 @@ impl fmt::Display for Ymd {
 
 impl From<&Ymd> for NaiveDate {
     fn from(ymd: &Ymd) -> NaiveDate {
-        NaiveDate::from_ymd(ymd.year as i32, ymd.month as u32, ymd.day as u32)
+        NaiveDate::from_ymd_opt(ymd.year as i32, ymd.month as u32, ymd.day as u32).unwrap()
     }
 }
 
@@ -192,7 +192,7 @@ mod tests {
     fn test_ymd_to_naive_date_success() {
         let ymd = Ymd::from_ymd(2022, 6, 12);
         let date = NaiveDate::from(&ymd);
-        let r_date = NaiveDate::from_ymd(2022, 6, 12);
+        let r_date = NaiveDate::from_ymd_opt(2022, 6, 12).unwrap();
         println!("{:?}, {:?}, {:?}, {}", ymd, date, r_date, date == r_date);
         assert_eq!(date, r_date);
     }
@@ -209,7 +209,7 @@ mod tests {
     fn test_hms_to_naive_time_success() {
         let hms = Hms::from_hms(23, 59, 59);
         let time = NaiveTime::from(&hms);
-        let r_time = NaiveTime::from_hms(23, 59, 59);
+        let r_time = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
         println!("{:?}, {:?}, {:?}, {}", hms, time, r_time, time == r_time);
         assert_eq!(time, r_time)
     }
@@ -224,8 +224,8 @@ mod tests {
 
     #[test]
     fn test_naive_time_add() {
-        let mut time = NaiveTime::from_hms(23, 59, 59);
-        let r_time = NaiveTime::from_hms(0, 0, 59);
+        let mut time = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
+        let r_time = NaiveTime::from_hms_opt(0, 0, 59).unwrap();
         time += Duration::minutes(1);
         println!("{:?}, {:?}, {}", time, r_time, time == r_time);
         assert_eq!(time, r_time)

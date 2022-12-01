@@ -16,17 +16,17 @@ pub struct KLineItem {
     // #[sqlx(default)]
     // pub breed:          String,
     #[sqlx(rename = "code")]
-    pub code:           String,
-    pub datetime:       NaiveDateTime,
-    pub period:         i32,
-    pub open:           Decimal,
-    pub high:           Decimal,
-    pub low:            Decimal,
-    pub close:          Decimal,
-    pub volume:         i64,
-    pub total_volume:   i64,
-    pub open_oi:        i64,
-    pub close_oi:       i64,
+    pub code: String,
+    pub datetime: NaiveDateTime,
+    pub period: i32,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: i64,
+    pub total_volume: i64,
+    pub open_oi: i64,
+    pub close_oi: i64,
     pub last_item_time: NaiveDateTime,
 }
 
@@ -99,7 +99,7 @@ lazy_static! {
 
 #[derive(Default)]
 pub struct KLineItemUtils {
-    default:   Option<Arc<KLineItemUtil>>,
+    default: Option<Arc<KLineItemUtil>>,
     util_hmap: HashMap<String, Arc<KLineItemUtil>>,
 }
 
@@ -457,8 +457,14 @@ mod tests {
     async fn test_kline_item_vec_range_by_time() {
         init_test_mysql_pools();
         let kiu = KLineItemUtil::new("hqdb");
-        let sdatetime = NaiveDate::from_ymd(2022, 6, 20).and_hms(9, 1, 0);
-        let edatetime = NaiveDate::from_ymd(2022, 6, 20).and_hms(15, 1, 0);
+        let sdatetime = NaiveDate::from_ymd_opt(2022, 6, 20)
+            .unwrap()
+            .and_hms_opt(9, 1, 0)
+            .unwrap();
+        let edatetime = NaiveDate::from_ymd_opt(2022, 6, 20)
+            .unwrap()
+            .and_hms_opt(15, 1, 0)
+            .unwrap();
         let kline_item_vec_range = kiu
             .item_vec_range_by_datetime(
                 &MySqlPools::default(),
@@ -509,8 +515,14 @@ mod tests {
         init_test_mysql_pools();
 
         let kiu = KLineItemUtil::new("hqdb");
-        let sdatetime = NaiveDate::from_ymd(2022, 6, 20).and_hms(9, 1, 0);
-        let edatetime = NaiveDate::from_ymd(2022, 6, 20).and_hms(8, 1, 0);
+        let sdatetime = NaiveDate::from_ymd_opt(2022, 6, 20)
+            .unwrap()
+            .and_hms_opt(9, 1, 0)
+            .unwrap();
+        let edatetime = NaiveDate::from_ymd_opt(2022, 6, 20)
+            .unwrap()
+            .and_hms_opt(8, 1, 0)
+            .unwrap();
         let kline_item_vec_range = kiu
             .item_vec_range_by_datetime(
                 &MySqlPools::default(),
