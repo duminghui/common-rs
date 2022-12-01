@@ -19,8 +19,8 @@ lazy_static! {
 
 /// Tick时间转成1m时间
 pub(crate) struct ConvertTo1m {
-    trd:               Arc<TxTimeRangeData>,
-    tdu:               Arc<TradingDayUtil>,
+    trd: Arc<TxTimeRangeData>,
+    tdu: Arc<TradingDayUtil>,
     /// breed 几个特殊时间点对应的hhmmss
     breed_1mtime_hmap: HashMap<String, HashMap<u16, Hms>>,
 }
@@ -28,8 +28,8 @@ pub(crate) struct ConvertTo1m {
 impl Default for ConvertTo1m {
     fn default() -> Self {
         Self {
-            trd:               TxTimeRangeData::current(),
-            tdu:               TradingDayUtil::current(),
+            trd: TxTimeRangeData::current(),
+            tdu: TradingDayUtil::current(),
             breed_1mtime_hmap: Default::default(),
         }
     }
@@ -78,13 +78,13 @@ impl ConvertTo1m {
                     match tr.start.hhmmss {
                         90100 => {
                             time_hmap.insert(859u16, Hms::from_hhmmss(90100));
-                        },
+                        }
                         93100 => {
                             time_hmap.insert(929u16, Hms::from_hhmmss(93100));
-                        },
+                        }
                         210100 => {
                             time_hmap.insert(2059u16, Hms::from_hhmmss(210100));
-                        },
+                        }
                         start => panic!("error start hhmmss: {:?}", start),
                     }
                 }
@@ -116,7 +116,13 @@ impl ConvertTo1m {
             date += Duration::days(1);
         }
         let kl_datetime = self.to_1m(breed, &date, hour as u8, min as u8, sec as u8);
-        kl_datetime.and_then(|v| Ok((v, date.and_hms_nano(hour, min, sec, time.nanosecond()))))
+        kl_datetime.and_then(|v| {
+            Ok((
+                v,
+                date.and_hms_nano_opt(hour, min, sec, time.nanosecond())
+                    .unwrap(),
+            ))
+        })
     }
 
     pub fn to_1m_with_trading_day(
@@ -138,7 +144,13 @@ impl ConvertTo1m {
         };
 
         let kl_datetime = self.to_1m(breed, &date, hour as u8, min as u8, sec as u8);
-        kl_datetime.and_then(|v| Ok((v, date.and_hms_nano(hour, min, sec, time.nanosecond()))))
+        kl_datetime.and_then(|v| {
+            Ok((
+                v,
+                date.and_hms_nano_opt(hour, min, sec, time.nanosecond())
+                    .unwrap(),
+            ))
+        })
     }
 
     /// Tick时间转成1m时间
@@ -162,7 +174,7 @@ impl ConvertTo1m {
     ) -> Result<NaiveDateTime, KLineTimeError> {
         let hms = Hms::from_hms(hour, min, sec);
         if hms.hhmmss == 0 {
-            return Ok(date.and_hms(0, 0, 0));
+            return Ok(date.and_hms_opt(0, 0, 0).unwrap());
         }
         let datetime = self
             .breed_1mtime_hmap
@@ -174,7 +186,7 @@ impl ConvertTo1m {
             .get(&hms.hhmm)
             .map_or_else(
                 || {
-                    date.and_time(NaiveTime::from_hms(hour as u32, min as u32, 0))
+                    date.and_time(NaiveTime::from_hms_opt(hour as u32, min as u32, 0).unwrap())
                         + Duration::minutes(1)
                 },
                 |v| date.and_time(NaiveTime::from(v)),
@@ -522,7 +534,7 @@ mod tests {
         BreedInfoVec::init(&MySqlPools::default()).await.unwrap();
         TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
         ConvertTo1m::init().unwrap();
-        let time = NaiveTime::from_hms(15, 40, 38);
+        let time = NaiveTime::from_hms_opt(15, 40, 38).unwrap();
         let time1m = ConvertTo1m::current().to_1m_with_min_dg_day("IC", 20220627, &time);
         println!("{:?}", time1m);
     }
@@ -545,13 +557,16 @@ mod tests {
 
     #[test]
     fn test_chrono() {
-        let time = NaiveTime::from_hms(0, 0, 0);
-        let date = NaiveDate::from_ymd(2022, 10, 31);
+        let time = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+        let date = NaiveDate::from_ymd_opt(2022, 10, 31).unwrap();
         let datetime = date.and_time(time);
         println!("time: {}", time);
         println!("date: {}", date);
         println!("datetime: {}", datetime);
-        let mut datetime = NaiveDate::from_ymd(2022, 10, 31).and_hms(23, 59, 59);
+        let mut datetime = NaiveDate::from_ymd_opt(2022, 10, 31)
+            .unwrap()
+            .and_hms_opt(23, 59, 59)
+            .unwrap();
         datetime += Duration::seconds(1);
         println!("add: {}", datetime);
     }

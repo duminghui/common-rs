@@ -17,16 +17,16 @@ lazy_static! {
 
 #[derive(FromRow)]
 struct TxTimeRangeDbItem {
-    breed:     String,
+    breed: String,
     rangelist: String,
 }
 
 struct BreedTxTimeRange {
     // 大写
-    breed:      String,
-    has_night:  bool,
+    breed: String,
+    has_night: bool,
     // 对应的时间范围集合. 一定不要重新排序, 如果合约有夜盘就是夜盘开始的时间.
-    tr_vec:     Vec<TimeRangeHms>,
+    tr_vec: Vec<TimeRangeHms>,
     // 对应修正了开始时间的时间范围集合.
     tr_vec_fix: Vec<TimeRangeHms>,
 
@@ -65,11 +65,9 @@ impl BreedTxTimeRange {
                 // self.tr_vec[next_idx].clone()
                 self.tr_vec.get(next_idx).unwrap()
             })
-            .ok_or_else(|| {
-                KLineTimeError::DatetimeNotInRange {
-                    breed:    self.breed.clone(),
-                    datetime: *datetime,
-                }
+            .ok_or_else(|| KLineTimeError::DatetimeNotInRange {
+                breed: self.breed.clone(),
+                datetime: *datetime,
             })?;
 
         let end_hhmm = self.tr_vec.last().unwrap().end.hhmm;
@@ -84,14 +82,14 @@ impl BreedTxTimeRange {
             2300 => {
                 // 直接取下一交易日
                 tdu.next(&yyyymmdd)?
-            },
+            }
             100 | 230 => {
                 if tdu.is_td(&yyyymmdd) {
                     ymd
                 } else {
                     tdu.next(&yyyymmdd)?
                 }
-            },
+            }
             hhmm if hhmm == end_hhmm => {
                 let next_td = tdu.next(&yyyymmdd)?;
 
@@ -105,14 +103,13 @@ impl BreedTxTimeRange {
                 } else {
                     next_td
                 }
-            },
+            }
             _ => ymd,
         };
-        Ok(NaiveDate::from(ymd).and_time(NaiveTime::from_hms(
-            next_tr.start.hour as u32,
-            next_tr.start.minute as u32,
-            0,
-        )))
+        Ok(NaiveDate::from(ymd).and_time(
+            NaiveTime::from_hms_opt(next_tr.start.hour as u32, next_tr.start.minute as u32, 0)
+                .unwrap(),
+        ))
     }
 
     fn is_trading_time(&self, time: &impl Timelike) -> bool {
@@ -360,7 +357,10 @@ mod tests {
     // [(931,1130),(1301,1500)]
     #[tokio::test]
     async fn test_next_minute_ic() {
-        let time = NaiveDate::from_ymd(2022, 7, 22).and_hms(9, 31, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 22)
+            .unwrap()
+            .and_hms_opt(9, 31, 0)
+            .unwrap();
         test_next_minute_sub("IC", &time).await;
     }
 
@@ -368,7 +368,10 @@ mod tests {
     // [(931,1130),(1301,1515)]
     #[tokio::test]
     async fn test_next_minute_tf() {
-        let time = NaiveDate::from_ymd(2022, 7, 25).and_hms(9, 31, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 25)
+            .unwrap()
+            .and_hms_opt(9, 31, 0)
+            .unwrap();
         test_next_minute_sub("TF", &time).await;
     }
 
@@ -376,7 +379,10 @@ mod tests {
     // [(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_ap() {
-        let time = NaiveDate::from_ymd(2022, 7, 25).and_hms(9, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 25)
+            .unwrap()
+            .and_hms_opt(9, 1, 0)
+            .unwrap();
         test_next_minute_sub("AP", &time).await;
     }
 
@@ -384,7 +390,10 @@ mod tests {
     // [(2101,2300),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_a_1() {
-        let time = NaiveDate::from_ymd(2022, 7, 25).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 25)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("A", &time).await;
     }
 
@@ -392,7 +401,10 @@ mod tests {
     // [(2101,2300),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_a_2() {
-        let time = NaiveDate::from_ymd(2022, 7, 22).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 22)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("A", &time).await;
     }
 
@@ -400,7 +412,10 @@ mod tests {
     // [(2101,2300),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_a_3() {
-        let time = NaiveDate::from_ymd(2022, 6, 1).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 6, 1)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("A", &time).await;
     }
 
@@ -408,7 +423,10 @@ mod tests {
     // [(2101,100),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_al_1() {
-        let time = NaiveDate::from_ymd(2022, 7, 25).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 25)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AL", &time).await;
     }
 
@@ -416,7 +434,10 @@ mod tests {
     // [(2101,100),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_al_2() {
-        let time = NaiveDate::from_ymd(2022, 7, 22).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 22)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AL", &time).await;
     }
 
@@ -424,7 +445,10 @@ mod tests {
     // [(2101,100),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_al_3() {
-        let time = NaiveDate::from_ymd(2022, 6, 1).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 6, 1)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AL", &time).await;
     }
 
@@ -432,7 +456,10 @@ mod tests {
     // [(2101,230),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_ag_1() {
-        let time = NaiveDate::from_ymd(2022, 7, 25).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 25)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AG", &time).await;
     }
 
@@ -440,7 +467,10 @@ mod tests {
     // [(2101,230),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_ag_2() {
-        let time = NaiveDate::from_ymd(2022, 7, 22).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 7, 22)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AG", &time).await;
     }
 
@@ -448,7 +478,10 @@ mod tests {
     // [(2101,230),(901,1015),(1031,1130),(1331,1500)]
     #[tokio::test]
     async fn test_next_minute_ag_3() {
-        let time = NaiveDate::from_ymd(2022, 6, 1).and_hms(21, 1, 0);
+        let time = NaiveDate::from_ymd_opt(2022, 6, 1)
+            .unwrap()
+            .and_hms_opt(21, 1, 0)
+            .unwrap();
         test_next_minute_sub("AG", &time).await;
     }
 
@@ -468,59 +501,62 @@ mod tests {
         init_test_mysql_pools();
         TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
         TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        let time = NaiveTime::from_hms(09, 31, 00);
+        let time = NaiveTime::from_hms_opt(09, 31, 00).unwrap();
         test_is_first_minute_sub("IC", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(09, 32, 00);
+        let time = NaiveTime::from_hms_opt(09, 32, 00).unwrap();
         test_is_first_minute_sub("IC", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms(09, 31, 00);
+        let time = NaiveTime::from_hms_opt(09, 31, 00).unwrap();
         test_is_first_minute_sub("TF", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(09, 32, 00);
+        let time = NaiveTime::from_hms_opt(09, 32, 00).unwrap();
         test_is_first_minute_sub("TF", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("AP", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(09, 2, 00);
+        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
         test_is_first_minute_sub("AP", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(09, 2, 00);
+        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("A", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("A", &20220606, &time, true).await;
 
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(09, 2, 00);
+        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("AL", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("AL", &20220606, &time, true).await;
 
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(09, 2, 00);
+        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms(21, 1, 00);
+        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
         test_is_first_minute_sub("ag", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms(09, 1, 00);
+        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
         test_is_first_minute_sub("ag", &20220606, &time, true).await;
     }
 
     #[test]
     fn test() {
         // 2022-08-05 02:46:01
-        let datetime = NaiveDate::from_ymd(2022, 8, 5).and_hms(2, 46, 1);
+        let datetime = NaiveDate::from_ymd_opt(2022, 8, 5)
+            .unwrap()
+            .and_hms_opt(2, 46, 1)
+            .unwrap();
         let datetime = datetime - Duration::hours(6) - Duration::seconds(57);
         println!("{}", datetime);
     }

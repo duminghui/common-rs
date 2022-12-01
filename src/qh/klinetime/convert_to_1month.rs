@@ -49,14 +49,14 @@ impl ConvertTo1Month {
         let start_time = NaiveTime::from(&trh_vec.first().unwrap().start);
         let end_time = NaiveTime::from(&trh_vec.last().unwrap().end);
 
-        let mut edate = NaiveDate::from_ymd(year, month, days);
+        let mut edate = NaiveDate::from_ymd_opt(year, month, days).unwrap();
         let tdu = &self.tdu;
         let eyyyymmdd = Ymd::from(&edate).yyyymmdd;
         if !tdu.is_td(&eyyyymmdd) {
             edate = NaiveDate::from(tdu.prev(&eyyyymmdd)?);
         }
 
-        let mut sdate = NaiveDate::from_ymd(year, month, 1);
+        let mut sdate = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
 
         let edatetime = edate.and_time(end_time);
 
@@ -75,9 +75,9 @@ impl ConvertTo1Month {
                     (year, month + 1)
                 };
                 let days = days_in_month(year, month);
-                sdate = NaiveDate::from_ymd(year, month, 1);
+                sdate = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
 
-                edate = NaiveDate::from_ymd(year, month, days);
+                edate = NaiveDate::from_ymd_opt(year, month, days).unwrap();
 
                 let eyyyymmdd = Ymd::from(&edate).yyyymmdd;
                 if !tdu.is_td(&eyyyymmdd) {
@@ -97,11 +97,11 @@ impl ConvertTo1Month {
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     if month == 12 {
-        NaiveDate::from_ymd(year + 1, 1, 1)
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
     } else {
-        NaiveDate::from_ymd(year, month + 1, 1)
+        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
     }
-    .sub(NaiveDate::from_ymd(year, month, 1))
+    .sub(NaiveDate::from_ymd_opt(year, month, 1).unwrap())
     .num_days() as u32
 }
 
@@ -119,8 +119,8 @@ mod tests {
 
     fn test_time_range_sub(breed: &str, tx_ranges: &str) {
         println!("=== {} {}===", breed, tx_ranges);
-        let mut sdate = NaiveDate::from_ymd(2019, 12, 31);
-        let edate = NaiveDate::from_ymd(2020, 12, 30);
+        let mut sdate = NaiveDate::from_ymd_opt(2019, 12, 31).unwrap();
+        let edate = NaiveDate::from_ymd_opt(2020, 12, 30).unwrap();
         let trd = TxTimeRangeData::current();
         let trh_vec = trd.time_range_vec(breed).unwrap();
         let start_time = NaiveTime::from(&trh_vec.first().unwrap().start);
@@ -229,11 +229,11 @@ mod tests {
             (
                 m,
                 if m == 12 {
-                    NaiveDate::from_ymd(year + 1, 1, 1)
+                    NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
                 } else {
-                    NaiveDate::from_ymd(year, m + 1, 1)
+                    NaiveDate::from_ymd_opt(year, m + 1, 1).unwrap()
                 }
-                .signed_duration_since(NaiveDate::from_ymd(year, m, 1))
+                .signed_duration_since(NaiveDate::from_ymd_opt(year, m, 1).unwrap())
                 .num_days(),
             )
         }) {
@@ -244,8 +244,8 @@ mod tests {
     #[test]
     fn test_chrono_2() {
         let year = 2020;
-        let stime = NaiveDate::from_ymd(year, 2, 1);
-        let etime = NaiveDate::from_ymd(year, 3, 1);
+        let stime = NaiveDate::from_ymd_opt(year, 2, 1).unwrap();
+        let etime = NaiveDate::from_ymd_opt(year, 3, 1).unwrap();
         let diff = etime.sub(stime);
         println!("{} {}", diff, diff.num_days());
     }

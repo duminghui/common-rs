@@ -31,21 +31,21 @@ lazy_static! {
 }
 
 pub struct ConvertToXm {
-    c1m:         Arc<ConvertTo1m>,
+    c1m: Arc<ConvertTo1m>,
     c30_60_120m: Arc<ConvertTo30m60m120m>,
-    c1d:         Arc<ConvertTo1d>,
-    c1w:         Arc<ConvertTo1W>,
-    c1mth:       Arc<ConvertTo1Month>,
+    c1d: Arc<ConvertTo1d>,
+    c1w: Arc<ConvertTo1W>,
+    c1mth: Arc<ConvertTo1Month>,
 }
 
 impl Default for ConvertToXm {
     fn default() -> Self {
         Self {
-            c1m:         ConvertTo1m::current(),
+            c1m: ConvertTo1m::current(),
             c30_60_120m: ConvertTo30m60m120m::current(),
-            c1d:         ConvertTo1d::current(),
-            c1w:         ConvertTo1W::current(),
-            c1mth:       ConvertTo1Month::current(),
+            c1d: ConvertTo1d::current(),
+            c1w: ConvertTo1W::current(),
+            c1mth: ConvertTo1Month::current(),
         }
     }
 }
@@ -68,12 +68,10 @@ impl ConvertToXm {
             "1d" => self.c1d.time_range(breed, datetime),
             "1w" => self.c1w.time_range(breed, datetime),
             "1mth" | "1month" => self.c1mth.time_range(breed, datetime),
-            _ => {
-                Err(KLineTimeError::PeriodNotSupport {
-                    period: period.to_owned(),
-                    scope:  "convert_xm::time_range_xm".to_owned(),
-                })
-            },
+            _ => Err(KLineTimeError::PeriodNotSupport {
+                period: period.to_owned(),
+                scope: "convert_xm::time_range_xm".to_owned(),
+            }),
         }
     }
 
@@ -114,7 +112,7 @@ mod tests {
         let cxm = ConvertToXm::current();
         let breed = "ag";
         println!("=== {} ===", breed);
-        let time = NaiveTime::from_hms(11, 25, 25);
+        let time = NaiveTime::from_hms_opt(11, 25, 25).unwrap();
         let (time_1m, _) = cxm.to_1m_with_min_dg_day(breed, 20220616, &time).unwrap();
         println!("{:>6}: {}", "1m", time_1m);
         let time_1m_2 = "2022-06-16T11:26:00".parse::<NaiveDateTime>().unwrap();

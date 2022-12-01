@@ -45,7 +45,7 @@ mod tests {
         println!("=== {} {} {} ===", breed, period, tx_ranges);
         let trd = TxTimeRangeData::current();
         let tx_range_fix_vec = trd.time_range_fix_vec(breed).unwrap();
-        let date = NaiveDate::from_ymd(2022, 6, 17);
+        let date = NaiveDate::from_ymd_opt(2022, 6, 17).unwrap();
         let next_date = date + Duration::days(1);
         let next_td = NaiveDate::from(TradingDayUtil::current().next(&20220617).unwrap());
 
