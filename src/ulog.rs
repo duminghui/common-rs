@@ -7,19 +7,20 @@ use time::UtcOffset;
 use tracing::metadata::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_error::ErrorLayer;
-use tracing_subscriber::filter::{FilterExt, Targets};
+use tracing_subscriber::filter::Targets;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, Layer, Registry};
+use tracing_subscriber::{fmt, Registry};
 
 pub struct LogConfig {
-    max_files:         usize,
-    level_filter:      LevelFilter,
+    max_files: usize,
+    level_filter: LevelFilter,
     console_line_info: bool,
-    console_target:    bool,
-    file_line_info:    bool,
-    file_target:       bool,
+    console_target: bool,
+    file_line_info: bool,
+    file_target: bool,
+    target_filters: Vec<(String, LevelFilter)>,
 }
 
 impl LogConfig {
@@ -38,7 +39,13 @@ impl LogConfig {
             console_target,
             file_line_info,
             file_target,
+            target_filters: Vec::new(),
         }
+    }
+
+    pub fn add_target(&mut self, target: &str) {
+        self.target_filters
+            .push((target.into(), self.level_filter.clone()));
     }
 }
 
@@ -56,11 +63,11 @@ pub fn init_tracing(
     let utc_offset = UtcOffset::from_hms(8, 0, 0).unwrap();
     let timer = OffsetTime::new(utc_offset, time_format);
 
-    // 控制台
-    let console_targets = Targets::new()
-        .with_target("sqlx::query", LevelFilter::OFF)
-        .with_target("mio::poll", LevelFilter::TRACE)
-        .not();
+    // // 控制台
+    // let console_targets = Targets::new()
+    //     .with_target("sqlx::query", LevelFilter::OFF)
+    //     .with_target("mio::poll", LevelFilter::TRACE)
+    //     .not();
 
     let console_layer = fmt::layer()
         // .pretty()
@@ -68,11 +75,12 @@ pub fn init_tracing(
         .with_file(config.console_line_info)
         .with_line_number(config.console_line_info)
         .with_target(config.console_target)
-        .with_timer(timer.clone())
-        .with_filter(console_targets);
+        .with_timer(timer.clone());
+    // .with_filter(console_targets);
 
     // 文件
     // let timer = LocalTime::new(time_format);
+    // 不用trace自带的文件生成
     // let file_appender = rolling::daily(directory, file_name);
 
     let directory = directory.as_ref();
@@ -88,10 +96,10 @@ pub fn init_tracing(
 
     let (non_blocking_appender, file_worker_guard) = tracing_appender::non_blocking(file_appender);
 
-    let file_appender_targets = Targets::new()
-        .with_target("sqlx::query", LevelFilter::OFF)
-        .with_target("mio::poll", LevelFilter::TRACE)
-        .not();
+    // let file_appender_targets = Targets::new()
+    //     .with_target("sqlx::query", LevelFilter::OFF)
+    //     .with_target("mio::poll", LevelFilter::TRACE)
+    //     .not();
 
     let file_appender_layer = fmt::layer()
         .with_ansi(false)
@@ -99,13 +107,20 @@ pub fn init_tracing(
         .with_line_number(config.console_line_info)
         .with_target(config.file_target)
         .with_timer(timer)
-        .with_writer(non_blocking_appender)
-        .with_filter(file_appender_targets);
+        .with_writer(non_blocking_appender);
+    // .with_filter(file_appender_targets);
+
+    let targets = if config.target_filters.is_empty() {
+        Targets::new().with_default(config.level_filter.clone())
+    } else {
+        Targets::from_iter(config.target_filters.clone())
+    };
 
     Registry::default()
         .with(config.level_filter)
         .with(console_layer)
         .with(file_appender_layer)
+        .with(targets)
         .with(ErrorLayer::default())
         .init();
 
