@@ -116,12 +116,12 @@ impl ConvertTo1m {
             date += Duration::days(1);
         }
         let kl_datetime = self.to_1m(breed, &date, hour as u8, min as u8, sec as u8);
-        kl_datetime.and_then(|v| {
-            Ok((
+        kl_datetime.map(|v| {
+            (
                 v,
                 date.and_hms_nano_opt(hour, min, sec, time.nanosecond())
                     .unwrap(),
-            ))
+            )
         })
     }
 
@@ -144,12 +144,12 @@ impl ConvertTo1m {
         };
 
         let kl_datetime = self.to_1m(breed, &date, hour as u8, min as u8, sec as u8);
-        kl_datetime.and_then(|v| {
-            Ok((
+        kl_datetime.map(|v| {
+            (
                 v,
                 date.and_hms_nano_opt(hour, min, sec, time.nanosecond())
                     .unwrap(),
-            ))
+            )
         })
     }
 

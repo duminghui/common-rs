@@ -34,7 +34,7 @@ struct BreedTxTimeRange {
 }
 
 impl BreedTxTimeRange {
-    // [(931,1130),(1301,1500)]
+    // [(931,1130),(1301,150)]
     // [(931,1130),(1301,1515)]
     // [(901,1015),(1031,1130),(1331,1500)]
     // [(2101,2300),(901,1015),(1031,1130),(1331,1500)]
@@ -146,11 +146,7 @@ impl From<TxTimeRangeDbItem> for BreedTxTimeRange {
         // [(2101,230),(901,1015),(1031,1130),(1331,1500)]
         let value_vec = item
             .rangelist
-            .replace(' ', "")
-            .replace('[', "")
-            .replace(']', "")
-            .replace('(', "")
-            .replace(')', "")
+            .replace([' ', '[', ']', '(', ')'], "")
             .split(',')
             .map(|v| v.parse::<u16>().unwrap())
             .collect::<Vec<_>>();
@@ -308,7 +304,7 @@ mod tests {
         init_test_mysql_pools();
         BreedInfoVec::init(&MySqlPools::default()).await.unwrap();
         let mut trd = TxTimeRangeData::default();
-        trd.init_from_db(&*MySqlPools::default()).await.unwrap();
+        trd.init_from_db(&MySqlPools::default()).await.unwrap();
         for BreedInfo { breed, .. } in BreedInfoVec::current().vec() {
             println!(
                 "{}: {:?}",
@@ -501,52 +497,52 @@ mod tests {
         init_test_mysql_pools();
         TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
         TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        let time = NaiveTime::from_hms_opt(09, 31, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 31, 0).unwrap();
         test_is_first_minute_sub("IC", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(09, 32, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 32, 0).unwrap();
         test_is_first_minute_sub("IC", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms_opt(09, 31, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 31, 0).unwrap();
         test_is_first_minute_sub("TF", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(09, 32, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 32, 0).unwrap();
         test_is_first_minute_sub("TF", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("AP", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 2, 0).unwrap();
         test_is_first_minute_sub("AP", &20220805, &time, false).await;
 
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 2, 0).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("A", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("A", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("A", &20220606, &time, true).await;
 
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 2, 0).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("AL", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("AL", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("AL", &20220606, &time, true).await;
 
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 2, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 2, 0).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, false).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("ag", &20220805, &time, true).await;
-        let time = NaiveTime::from_hms_opt(21, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(21, 1, 0).unwrap();
         test_is_first_minute_sub("ag", &20220606, &time, false).await;
-        let time = NaiveTime::from_hms_opt(09, 1, 00).unwrap();
+        let time = NaiveTime::from_hms_opt(9, 1, 0).unwrap();
         test_is_first_minute_sub("ag", &20220606, &time, true).await;
     }
 

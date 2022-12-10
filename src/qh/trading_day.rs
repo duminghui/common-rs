@@ -456,7 +456,7 @@ mod tests {
         let mut handles = Vec::with_capacity(10);
 
         init_test_mysql_pools();
-        TradingDayUtil::init(&*MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let len = tdu.td_vec.len();
         println!("td size: {}", len);
@@ -489,7 +489,7 @@ mod tests {
                         println!("Next Error 2: {}", yyyymmdd);
                     }
 
-                    date = date + Duration::days(1);
+                    date += Duration::days(1);
                 }
             }));
         }
@@ -502,20 +502,20 @@ mod tests {
     #[tokio::test]
     async fn test_has_night() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&*MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let date = 20220602;
         println!("{} {}", date, tdu.has_night(&date));
-        assert_eq!(true, tdu.has_night(&date));
+        assert!(tdu.has_night(&date));
         let date = 20220606;
         println!("{} {}", date, tdu.has_night(&date));
-        assert_eq!(false, tdu.has_night(&date));
+        assert!(!tdu.has_night(&date));
     }
 
     #[tokio::test]
     async fn test_trading_day_from_datetime() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&*MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
         let tdu = TradingDayUtil::current();
         for day in 6..=9 {
             let datetime = NaiveDate::from_ymd_opt(2022, 8, day)
@@ -582,7 +582,7 @@ mod tests {
     fn test_naive_date() {
         let mut date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
         for _ in 0..=30 {
-            date = date + Duration::days(1);
+            date += Duration::days(1);
             println!("# {:?}", date.format("%Y-%m-%d").to_string());
         }
         let date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
