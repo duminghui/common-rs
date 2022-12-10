@@ -102,11 +102,11 @@ mod tests {
             let mut sdatetime = date.and_time(NaiveTime::from(&st_hms.start));
             let edatetime = date.and_time(NaiveTime::from(&st_hms.end));
             while sdatetime <= edatetime {
-                let time = NaiveTime::from(sdatetime.time());
+                let time = sdatetime.time();
                 let datetime = if (0..=3).contains(&time.hour()) {
-                    next_date.and_time(sdatetime.time())
+                    next_date.and_time(time)
                 } else if time.hour() < 21 {
-                    next_td.and_time(sdatetime.time())
+                    next_td.and_time(time)
                 } else {
                     sdatetime
                 };

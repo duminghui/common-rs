@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn test_get_pv() {
-        let mut v = PeriodUtil::pv(&"1m");
+        let mut v = PeriodUtil::pv("1m");
         println!("{:?}", v);
         let v = v.take().unwrap().to_owned();
         println!("{}", v);

@@ -15,10 +15,10 @@ pub mod batch_exec;
 // pub type DateTime = chrono::DateTime<chrono::Utc>;
 
 pub struct PoolConfig {
-    database:        Option<String>,
-    min_conns:       u32,
-    max_conns:       u32,
-    idle_timeout:    u64,
+    database: Option<String>,
+    min_conns: u32,
+    max_conns: u32,
+    idle_timeout: u64,
     acquire_timeout: u64,
 }
 
@@ -43,9 +43,9 @@ impl PoolConfig {
 #[derive(Debug, Deserialize)]
 pub struct ConnectConfig {
     #[serde(rename = "host")]
-    host:     String,
+    host: String,
     #[serde(rename = "port")]
-    port:     u16,
+    port: u16,
     #[serde(rename = "user")]
     username: String,
     #[serde(rename = "passwd")]
@@ -141,7 +141,7 @@ lazy_static! {
 /// mysql数据连接池的管理
 #[derive(Default)]
 pub struct MySqlPools {
-    default:   Option<Arc<MySqlPool>>,
+    default: Option<Arc<MySqlPool>>,
     pool_hmap: HashMap<String, Arc<MySqlPool>>,
 }
 
@@ -207,7 +207,7 @@ mod tests {
             true,
         )
         .unwrap();
-        let arc_count = Arc::strong_count(&MYSQL_POOLS.read().unwrap().default.as_ref().unwrap());
+        let arc_count = Arc::strong_count(MYSQL_POOLS.read().unwrap().default.as_ref().unwrap());
         println!("count: {} count==2: {}", arc_count, arc_count == 2);
         let pool = MySqlPools::default();
         let arc_count = Arc::strong_count(&pool);

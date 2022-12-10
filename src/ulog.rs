@@ -45,7 +45,7 @@ impl LogConfig {
 
     pub fn add_target(&mut self, target: &str) {
         self.target_filters
-            .push((target.into(), self.level_filter.clone()));
+            .push((target.into(), self.level_filter));
     }
 }
 
@@ -111,7 +111,7 @@ pub fn init_tracing(
     // .with_filter(file_appender_targets);
 
     let targets = if config.target_filters.is_empty() {
-        Targets::new().with_default(config.level_filter.clone())
+        Targets::new().with_default(config.level_filter)
     } else {
         Targets::from_iter(config.target_filters.clone())
     };

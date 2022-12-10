@@ -117,7 +117,7 @@ mod tests {
         println!("{:>6}: {}", "1m", time_1m);
         let time_1m_2 = "2022-06-16T11:26:00".parse::<NaiveDateTime>().unwrap();
         assert_eq!(time_1m, time_1m_2);
-        for period in vec!["3m", "5m", "15m", "30m", "60m", "120m", "1w", "1month"] {
+        for period in &["3m", "5m", "15m", "30m", "60m", "120m", "1w", "1month"] {
             let time = cxm.time_range_xm(breed, period, &time_1m).unwrap();
             println!("{:>6}: {}", period, time);
         }

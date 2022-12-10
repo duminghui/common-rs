@@ -50,13 +50,13 @@ mod tests {
         let next_td = NaiveDate::from(TradingDayUtil::current().next(&20220617).unwrap());
 
         let mut key_vec = vec![];
-        let mut xm_vec_map = HashMap::new();
+        let mut xm_vec_map = HashMap::<String, Vec<_>>::new();
 
         for st_hms in tx_range_fix_vec {
             let mut sdatetime = date.and_time(NaiveTime::from(&st_hms.start));
             let edatetime = date.and_time(NaiveTime::from(&st_hms.end));
             while sdatetime <= edatetime {
-                let time = NaiveTime::from(sdatetime.time());
+                let time = sdatetime.time();
                 let datetime = if (0..=3).contains(&time.hour()) {
                     next_date.and_time(sdatetime.time())
                 } else if time.hour() < 21 {
@@ -69,7 +69,7 @@ mod tests {
                 if !xm_vec_map.contains_key(&key) {
                     key_vec.push(key.clone());
                 }
-                let xm_vec = xm_vec_map.entry(key).or_insert(vec![]);
+                let xm_vec = xm_vec_map.entry(key).or_default();
                 xm_vec.push(datetime);
                 sdatetime += Duration::minutes(1);
             }
