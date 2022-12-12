@@ -10,6 +10,8 @@ use sqlx::{ConnectOptions, Executor, MySqlPool};
 
 use crate::yaml;
 use crate::yaml::YamlParseError;
+
+#[cfg(feature = "mysqlx_batch")]
 pub mod batch_exec;
 
 // pub type DateTime = chrono::DateTime<chrono::Utc>;
@@ -187,7 +189,6 @@ mod tests {
     use std::sync::Arc;
 
     use super::{conn_config_from_file, ConnectConfig, MySqlPools, PoolConfig, MYSQL_POOLS};
-    use crate::qh::klineitem::KLineItemUtil;
 
     #[test]
     fn test_read_conn_config() {
@@ -214,8 +215,10 @@ mod tests {
         println!("count: {} count==3: {}", arc_count, arc_count == 3);
     }
 
+    #[cfg(feature = "qh")]
     #[tokio::test]
     async fn test_thread() {
+        use crate::qh::klineitem::KLineItemUtil;
         let conf_hmap: HashMap<String, ConnectConfig> =
             conn_config_from_file("/opt/kds/work/configs/db-rs.yaml").unwrap();
         MySqlPools::init_one_pool(

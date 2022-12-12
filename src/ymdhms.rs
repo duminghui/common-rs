@@ -17,6 +17,7 @@ pub(crate) struct TimeRangeHms {
     pub end: Hms,
 }
 
+#[allow(unused)]
 impl TimeRangeHms {
     pub fn new(shhmmss: u32, ehhmmss: u32) -> TimeRangeHms {
         TimeRangeHms {
@@ -134,6 +135,7 @@ pub struct Ymd {
     pub day: u8,
 }
 
+#[allow(unused)]
 impl Ymd {
     pub(crate) fn from_yyyymmdd(yyyymmdd: u32) -> Ymd {
         let year = (yyyymmdd / 10000) as u16;
