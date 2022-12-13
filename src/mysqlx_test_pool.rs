@@ -28,7 +28,7 @@ pub(crate) fn init_test_mysql_pools() {
     MySqlPools::init_one_pool(
         &config_hmap,
         "s133",
-        &PoolConfig::new(None, 1, 5, 3000, 3000),
+        &PoolConfig::new(1, 5, 3000, 3000),
         true,
         true,
     )

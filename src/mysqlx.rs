@@ -17,7 +17,6 @@ pub mod batch_exec;
 // pub type DateTime = chrono::DateTime<chrono::Utc>;
 
 pub struct PoolConfig {
-    database: Option<String>,
     min_conns: u32,
     max_conns: u32,
     idle_timeout: u64,
@@ -26,14 +25,12 @@ pub struct PoolConfig {
 
 impl PoolConfig {
     pub fn new(
-        database: Option<String>,
         min_conns: u32,
         max_conns: u32,
         idle_timeout: u64,
         acquire_timeout: u64,
     ) -> PoolConfig {
         PoolConfig {
-            database,
             min_conns,
             max_conns,
             idle_timeout,
@@ -52,6 +49,8 @@ pub struct ConnectConfig {
     username: String,
     #[serde(rename = "passwd")]
     password: String,
+    #[serde(rename = "database")]
+    database: Option<String>,
 }
 
 pub fn conn_config_from_file(
@@ -92,12 +91,11 @@ pub fn connect_pool(
         .port(config.port)
         .username(&config.username)
         .password(&config.password)
-        // .database("hqdb")
         .charset("utf8")
         .collation("utf8_general_ci")
         .ssl_mode(MySqlSslMode::Disabled);
 
-    if let Some(database) = &pool_config.database {
+    if let Some(database) = &config.database {
         connect_opts = connect_opts.database(database);
     }
 
@@ -203,7 +201,7 @@ mod tests {
         MySqlPools::init_one_pool(
             &conf_hmap,
             "s133",
-            &PoolConfig::new(None, 1, 1, 3000, 3000),
+            &PoolConfig::new(1, 1, 3000, 3000),
             true,
             true,
         )
@@ -224,7 +222,7 @@ mod tests {
         MySqlPools::init_one_pool(
             &conf_hmap,
             "s133",
-            &PoolConfig::new(None, 1, 3, 3000, 3000),
+            &PoolConfig::new(1, 3, 3000, 3000),
             true,
             true,
         )
