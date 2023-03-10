@@ -12,8 +12,8 @@ use crate::ymdhms::{Hms, TimeRangeHms, Ymd};
 
 #[derive(FromRow)]
 struct DbItem {
-    breed: String,
-    period: String,
+    breed:     String,
+    period:    String,
     rangelist: String,
 }
 
@@ -57,14 +57,14 @@ lazy_static! {
 }
 
 pub(crate) struct ConvertTo30m60m120m {
-    tdu: Arc<TradingDayUtil>,
+    tdu:        Arc<TradingDayUtil>,
     store_data: StoreData,
 }
 
 impl Default for ConvertTo30m60m120m {
     fn default() -> Self {
         Self {
-            tdu: TradingDayUtil::current(),
+            tdu:        TradingDayUtil::current(),
             store_data: Default::default(),
         }
     }
@@ -113,12 +113,12 @@ impl ConvertTo30m60m120m {
             .get(period)
             .ok_or(KLineTimeError::PeriodNotExist {
                 period: period.to_owned(),
-                scope: "Convert30m60m120m".to_owned(),
+                scope:  "Convert30m60m120m".to_owned(),
             })?
             .iter()
             .find(|v| v.in_range_time(&datetime.time()))
             .ok_or(KLineTimeError::DatetimeNotInRange {
-                breed: breed.to_owned(),
+                breed:    breed.to_owned(),
                 datetime: *datetime,
             })?;
 

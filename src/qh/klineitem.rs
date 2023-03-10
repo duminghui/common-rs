@@ -16,17 +16,17 @@ pub struct KLineItem {
     // #[sqlx(default)]
     // pub breed:          String,
     #[sqlx(rename = "code")]
-    pub code: String,
-    pub datetime: NaiveDateTime,
-    pub period: i32,
-    pub open: Decimal,
-    pub high: Decimal,
-    pub low: Decimal,
-    pub close: Decimal,
-    pub volume: i64,
-    pub total_volume: i64,
-    pub open_oi: i64,
-    pub close_oi: i64,
+    pub code:           String,
+    pub datetime:       NaiveDateTime,
+    pub period:         i32,
+    pub open:           Decimal,
+    pub high:           Decimal,
+    pub low:            Decimal,
+    pub close:          Decimal,
+    pub volume:         i64,
+    pub total_volume:   i64,
+    pub open_oi:        i64,
+    pub close_oi:       i64,
     pub last_item_time: NaiveDateTime,
 }
 
@@ -51,6 +51,8 @@ impl std::fmt::Display for KLineItem {
 }
 
 impl KLineItem {
+    const KLINE_ITEM_REPLACE_INTO_SQL_TEMPLATE: &'static str = "REPLACE INTO {{table_name}}(code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
+
     pub fn new(code: &str, datetime: &NaiveDateTime, period: i32) -> KLineItem {
         KLineItem {
             code: code.to_owned(),
@@ -71,8 +73,6 @@ impl KLineItem {
     pub fn breed(&self) -> String {
         breed::breed_from_symbol(&self.code)
     }
-
-    const KLINE_ITEM_REPLACE_INTO_SQL_TEMPLATE: &'static str = "REPLACE INTO {{table_name}}(code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
 
     pub fn sql_entity_replace(&self, key: &str, table_name: &str) -> SqlEntity {
         let sql = Self::KLINE_ITEM_REPLACE_INTO_SQL_TEMPLATE.replace("{{table_name}}", table_name);
@@ -99,7 +99,7 @@ lazy_static! {
 
 #[derive(Default)]
 pub struct KLineItemUtils {
-    default: Option<Arc<KLineItemUtil>>,
+    default:   Option<Arc<KLineItemUtil>>,
     util_hmap: HashMap<String, Arc<KLineItemUtil>>,
 }
 
@@ -214,6 +214,14 @@ impl KLineItemUtil {
 
 /// 列表相关的操作
 impl KLineItemUtil {
+    const KLINE_ITEM_VEC_LATEST_BY_SYMBOL_SQL_TEMPLATE: &'static str =
+        "SELECT * FROM (SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE code=? AND period=? ORDER BY datetime DESC LIMIT ?) AS T ORDER BY datetime";
+    const KLINE_ITEM_VEC_LATEST_SQL_TEMPLATE: &'static str =
+        "SELECT * FROM (SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE period=? ORDER BY datetime DESC LIMIT ?) AS T ORDER BY datetime";
+    const KLINE_ITEM_VEC_OLDEST_SQL_TEMPLATE: &'static str =
+        "SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE period=? ORDER BY datetime LIMIT ?";
+    const KLINE_ITEM_VEC_RANGE_SQL_TEMPLATE: &'static str =
+        "SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE datetime>=? AND datetime <=? AND period=? ORDER BY datetime LIMIT ?";
     const KLINE_ITEM_VEC_SQL_TEMPLATE: &'static str =
         "SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE datetime>=? AND period=? ORDER BY datetime LIMIT ?";
 
@@ -271,9 +279,6 @@ impl KLineItemUtil {
         .await
     }
 
-    const KLINE_ITEM_VEC_RANGE_SQL_TEMPLATE: &'static str =
-        "SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE datetime>=? AND datetime <=? AND period=? ORDER BY datetime LIMIT ?";
-
     /// 时间范围内的数据列表, 时间正序
     pub async fn item_vec_range(
         &self,
@@ -313,8 +318,6 @@ impl KLineItemUtil {
         self.item_vec_range(pool, tbl_suffix, period, sdatetime, edatetime, limit)
             .await
     }
-    const KLINE_ITEM_VEC_OLDEST_SQL_TEMPLATE: &'static str =
-        "SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE period=? ORDER BY datetime LIMIT ?";
 
     /// 最老的数据, 时间正序
     pub async fn item_vec_oldest(
@@ -337,9 +340,6 @@ impl KLineItemUtil {
             .await
     }
 
-    const KLINE_ITEM_VEC_LATEST_SQL_TEMPLATE: &'static str =
-        "SELECT * FROM (SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE period=? ORDER BY datetime DESC LIMIT ?) AS T ORDER BY datetime";
-
     /// 最新的数据, 时间正序.
     pub async fn item_vec_latest(
         &self,
@@ -360,9 +360,6 @@ impl KLineItemUtil {
             .try_collect()
             .await
     }
-
-    const KLINE_ITEM_VEC_LATEST_BY_SYMBOL_SQL_TEMPLATE: &'static str =
-        "SELECT * FROM (SELECT code,datetime,period,open,high,low,close,volume,total_volume,open_oi,close_oi,last_item_time FROM {{table_name}} WHERE code=? AND period=? ORDER BY datetime DESC LIMIT ?) AS T ORDER BY datetime";
 
     /// 获取某一合约的最新的数据列表, 时间正序.
     pub async fn item_vec_latest_by_symbol(

@@ -66,7 +66,7 @@ impl BreedInfoVec {
         let sql = "SELECT instrument_id FROM hqdb.tbl_future_main_contract";
         let breed_info_vec = sqlx::query_as::<_, (String,)>(sql)
             .fetch(pool)
-            .map_ok(|item|BreedInfo::new_from_symbol(&item.0))
+            .map_ok(|item| BreedInfo::new_from_symbol(&item.0))
             // .map(|item| item.map(|id| BreedInfo::new_from_symbol(&id.0)))
             .try_collect::<Vec<BreedInfo>>()
             .await?;

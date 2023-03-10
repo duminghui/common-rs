@@ -17,16 +17,16 @@ lazy_static! {
 
 #[derive(FromRow)]
 struct TxTimeRangeDbItem {
-    breed: String,
+    breed:     String,
     rangelist: String,
 }
 
 struct BreedTxTimeRange {
     // 大写
-    breed: String,
-    has_night: bool,
+    breed:      String,
+    has_night:  bool,
     // 对应的时间范围集合. 一定不要重新排序, 如果合约有夜盘就是夜盘开始的时间.
-    tr_vec: Vec<TimeRangeHms>,
+    tr_vec:     Vec<TimeRangeHms>,
     // 对应修正了开始时间的时间范围集合.
     tr_vec_fix: Vec<TimeRangeHms>,
 
@@ -66,7 +66,7 @@ impl BreedTxTimeRange {
                 self.tr_vec.get(next_idx).unwrap()
             })
             .ok_or_else(|| KLineTimeError::DatetimeNotInRange {
-                breed: self.breed.clone(),
+                breed:    self.breed.clone(),
                 datetime: *datetime,
             })?;
 
@@ -82,14 +82,14 @@ impl BreedTxTimeRange {
             2300 => {
                 // 直接取下一交易日
                 tdu.next(&yyyymmdd)?
-            }
+            },
             100 | 230 => {
                 if tdu.is_td(&yyyymmdd) {
                     ymd
                 } else {
                     tdu.next(&yyyymmdd)?
                 }
-            }
+            },
             hhmm if hhmm == end_hhmm => {
                 let next_td = tdu.next(&yyyymmdd)?;
 
@@ -103,7 +103,7 @@ impl BreedTxTimeRange {
                 } else {
                     next_td
                 }
-            }
+            },
             _ => ymd,
         };
         Ok(NaiveDate::from(ymd).and_time(

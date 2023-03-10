@@ -14,13 +14,13 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, Registry};
 
 pub struct LogConfig {
-    max_files: usize,
-    level_filter: LevelFilter,
+    max_files:         usize,
+    level_filter:      LevelFilter,
     console_line_info: bool,
-    console_target: bool,
-    file_line_info: bool,
-    file_target: bool,
-    target_filters: Vec<(String, LevelFilter)>,
+    console_target:    bool,
+    file_line_info:    bool,
+    file_target:       bool,
+    target_filters:    Vec<(String, LevelFilter)>,
 }
 
 impl LogConfig {
@@ -44,8 +44,7 @@ impl LogConfig {
     }
 
     pub fn add_target(&mut self, target: &str) {
-        self.target_filters
-            .push((target.into(), self.level_filter));
+        self.target_filters.push((target.into(), self.level_filter));
     }
 }
 

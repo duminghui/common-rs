@@ -17,9 +17,9 @@ pub mod batch_exec;
 // pub type DateTime = chrono::DateTime<chrono::Utc>;
 
 pub struct PoolConfig {
-    min_conns: u32,
-    max_conns: u32,
-    idle_timeout: u64,
+    min_conns:       u32,
+    max_conns:       u32,
+    idle_timeout:    u64,
     acquire_timeout: u64,
 }
 
@@ -42,9 +42,9 @@ impl PoolConfig {
 #[derive(Debug, Deserialize)]
 pub struct ConnectConfig {
     #[serde(rename = "host")]
-    host: String,
+    host:     String,
     #[serde(rename = "port")]
-    port: u16,
+    port:     u16,
     #[serde(rename = "user")]
     username: String,
     #[serde(rename = "passwd")]
@@ -141,7 +141,7 @@ lazy_static! {
 /// mysql数据连接池的管理
 #[derive(Default)]
 pub struct MySqlPools {
-    default: Option<Arc<MySqlPool>>,
+    default:   Option<Arc<MySqlPool>>,
     pool_hmap: HashMap<String, Arc<MySqlPool>>,
 }
 

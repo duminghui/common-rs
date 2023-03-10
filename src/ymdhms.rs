@@ -14,7 +14,7 @@ use chrono::{Datelike, NaiveDate, NaiveTime, Timelike};
 #[derive(Debug, Clone)]
 pub(crate) struct TimeRangeHms {
     pub start: Hms,
-    pub end: Hms,
+    pub end:   Hms,
 }
 
 #[allow(unused)]
@@ -22,7 +22,7 @@ impl TimeRangeHms {
     pub fn new(shhmmss: u32, ehhmmss: u32) -> TimeRangeHms {
         TimeRangeHms {
             start: Hms::from_hhmmss(shhmmss),
-            end: Hms::from_hhmmss(ehhmmss),
+            end:   Hms::from_hhmmss(ehhmmss),
         }
     }
 
@@ -57,8 +57,8 @@ impl fmt::Display for TimeRangeHms {
 #[derive(Copy, Clone, Eq)]
 pub struct Hms {
     pub hhmmss: u32,
-    pub hhmm: u16,
-    pub hour: u8,
+    pub hhmm:   u16,
+    pub hour:   u8,
     pub minute: u8,
     pub second: u8,
 }
@@ -130,9 +130,9 @@ impl<T: Timelike> From<&T> for Hms {
 #[derive(Copy, Clone)]
 pub struct Ymd {
     pub yyyymmdd: u32,
-    pub year: u16,
-    pub month: u8,
-    pub day: u8,
+    pub year:     u16,
+    pub month:    u8,
+    pub day:      u8,
 }
 
 #[allow(unused)]

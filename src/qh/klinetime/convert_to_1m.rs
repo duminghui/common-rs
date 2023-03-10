@@ -19,8 +19,8 @@ lazy_static! {
 
 /// Tick时间转成1m时间
 pub(crate) struct ConvertTo1m {
-    trd: Arc<TxTimeRangeData>,
-    tdu: Arc<TradingDayUtil>,
+    trd:               Arc<TxTimeRangeData>,
+    tdu:               Arc<TradingDayUtil>,
     /// breed 几个特殊时间点对应的hhmmss
     breed_1mtime_hmap: HashMap<String, HashMap<u16, Hms>>,
 }
@@ -28,8 +28,8 @@ pub(crate) struct ConvertTo1m {
 impl Default for ConvertTo1m {
     fn default() -> Self {
         Self {
-            trd: TxTimeRangeData::current(),
-            tdu: TradingDayUtil::current(),
+            trd:               TxTimeRangeData::current(),
+            tdu:               TradingDayUtil::current(),
             breed_1mtime_hmap: Default::default(),
         }
     }
@@ -78,13 +78,13 @@ impl ConvertTo1m {
                     match tr.start.hhmmss {
                         90100 => {
                             time_hmap.insert(859u16, Hms::from_hhmmss(90100));
-                        }
+                        },
                         93100 => {
                             time_hmap.insert(929u16, Hms::from_hhmmss(93100));
-                        }
+                        },
                         210100 => {
                             time_hmap.insert(2059u16, Hms::from_hhmmss(210100));
-                        }
+                        },
                         start => panic!("error start hhmmss: {:?}", start),
                     }
                 }

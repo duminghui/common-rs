@@ -31,21 +31,21 @@ lazy_static! {
 }
 
 pub struct ConvertToXm {
-    c1m: Arc<ConvertTo1m>,
+    c1m:         Arc<ConvertTo1m>,
     c30_60_120m: Arc<ConvertTo30m60m120m>,
-    c1d: Arc<ConvertTo1d>,
-    c1w: Arc<ConvertTo1W>,
-    c1mth: Arc<ConvertTo1Month>,
+    c1d:         Arc<ConvertTo1d>,
+    c1w:         Arc<ConvertTo1W>,
+    c1mth:       Arc<ConvertTo1Month>,
 }
 
 impl Default for ConvertToXm {
     fn default() -> Self {
         Self {
-            c1m: ConvertTo1m::current(),
+            c1m:         ConvertTo1m::current(),
             c30_60_120m: ConvertTo30m60m120m::current(),
-            c1d: ConvertTo1d::current(),
-            c1w: ConvertTo1W::current(),
-            c1mth: ConvertTo1Month::current(),
+            c1d:         ConvertTo1d::current(),
+            c1w:         ConvertTo1W::current(),
+            c1mth:       ConvertTo1Month::current(),
         }
     }
 }
@@ -70,7 +70,7 @@ impl ConvertToXm {
             "1mth" | "1month" => self.c1mth.time_range(breed, datetime),
             _ => Err(KLineTimeError::PeriodNotSupport {
                 period: period.to_owned(),
-                scope: "convert_xm::time_range_xm".to_owned(),
+                scope:  "convert_xm::time_range_xm".to_owned(),
             }),
         }
     }

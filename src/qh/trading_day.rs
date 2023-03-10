@@ -42,11 +42,11 @@ impl From<TradingDayDbItem> for Ymd {
 
 #[derive(Debug)]
 struct DayInfo {
-    is_td: bool,     // 是否交易日
-    prev_idx: usize, // 前一交易日index
-    idx: usize,      /* 非交易日:所属交易日的index,和next_idx相同. 交易日:在列表中的index */
-    next_idx: usize, // 下一交易日index
-    has_night: bool, // 是否有夜盘
+    is_td:     bool,  // 是否交易日
+    prev_idx:  usize, // 前一交易日index
+    idx:       usize, /* 非交易日:所属交易日的index,和next_idx相同. 交易日:在列表中的index */
+    next_idx:  usize, // 下一交易日index
+    has_night: bool,  // 是否有夜盘
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -59,7 +59,7 @@ pub enum TradingDayUtilInitError {
 
 #[derive(Debug, Default)]
 pub struct TradingDayUtil {
-    td_vec: Vec<Ymd>,                    // 交易日列表
+    td_vec:       Vec<Ymd>,              // 交易日列表
     day_info_map: HashMap<u32, DayInfo>, // day, idx
 }
 
@@ -149,10 +149,10 @@ impl TradingDayUtil {
                 idx -= 1;
                 let n_idx = idx + 1;
                 DayInfo {
-                    is_td: false,
-                    prev_idx: idx,
-                    idx: n_idx,
-                    next_idx: n_idx,
+                    is_td:     false,
+                    prev_idx:  idx,
+                    idx:       n_idx,
+                    next_idx:  n_idx,
                     has_night: false,
                 }
             });

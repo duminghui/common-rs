@@ -113,7 +113,7 @@ mod tests {
                 Weekday::Fri if hhmmss > 210000 => datetime + Duration::days(7),
                 Weekday::Sat | Weekday::Sun => {
                     datetime + Duration::days(12 - number_from_monday as i64)
-                }
+                },
                 _ => datetime + Duration::days(5 - number_from_monday as i64),
             };
             let start_date1 = end_date - Duration::days(7);
