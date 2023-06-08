@@ -107,7 +107,7 @@ pub fn connect_pool(
         .min_connections(pool_config.min_conns)
         .max_connections(pool_config.max_conns)
         .idle_timeout(Duration::from_secs(pool_config.idle_timeout))
-        .acquire_timeout(Duration::from_millis(pool_config.acquire_timeout))
+        .acquire_timeout(Duration::from_secs(pool_config.acquire_timeout))
         .after_connect(|conn, _meta| {
             // fix: time_zone = '+00:00'
             Box::pin(async move {
