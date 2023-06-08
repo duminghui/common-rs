@@ -275,7 +275,7 @@ mod botch_exec_tests {
     #[tokio::test]
     async fn test_batch_exec_execute() {
         init_test_mysql_pools();
-        let pool = MySqlPools::default();
+        let pool = MySqlPools::pool();
         let mut be = batch_exec();
         let result = be.execute_all(&pool).await;
         match result {

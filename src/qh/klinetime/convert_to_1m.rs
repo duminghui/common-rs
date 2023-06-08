@@ -259,7 +259,7 @@ mod tests {
 
     async fn init() {
         init_test_mysql_pools();
-        let pool = MySqlPools::default();
+        let pool = MySqlPools::pool();
         BreedInfoVec::init(&pool).await.unwrap();
         TxTimeRangeData::init(&pool).await.unwrap();
         TradingDayUtil::init(&pool).await.unwrap();
@@ -531,8 +531,8 @@ mod tests {
     async fn test_to_1m_error() {
         // "2022-06-27 15:40:38 +0800"
         init_test_mysql_pools();
-        BreedInfoVec::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
+        BreedInfoVec::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
         ConvertTo1m::init().unwrap();
         let time = NaiveTime::from_hms_opt(15, 40, 38).unwrap();
         let time1m = ConvertTo1m::current().to_1m_with_min_dg_day("IC", 20220627, &time);
@@ -542,8 +542,8 @@ mod tests {
     #[tokio::test]
     async fn test_init() {
         init_test_mysql_pools();
-        BreedInfoVec::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
+        BreedInfoVec::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
         ConvertTo1m::init().unwrap();
         let t1mcvt = ConvertTo1m::current();
         for BreedInfo { breed, .. } in BreedInfoVec::current().vec() {

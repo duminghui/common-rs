@@ -102,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn test_breed_list_from_db() {
         init_test_mysql_pools();
-        BreedInfoVec::init(&MySqlPools::default()).await.unwrap();
+        BreedInfoVec::init(&MySqlPools::pool()).await.unwrap();
         let breed_vec = BreedInfoVec::current();
         println!("{:?}", breed_vec.vec);
     }

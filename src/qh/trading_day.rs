@@ -354,7 +354,7 @@ mod tests {
     #[tokio::test]
     async fn test_start_end_day() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let r = tdu.start_end_day(&20220611);
         println!("#1: {:?}", r);
@@ -380,7 +380,7 @@ mod tests {
         let arc_hmap = Arc::new(result_hmap);
 
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
 
         let mut handles = Vec::with_capacity(10);
 
@@ -403,7 +403,7 @@ mod tests {
     #[tokio::test]
     async fn test_trading_day_prev_2() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let a = tdu.prev(&20220607);
         // 这块打印出来的unwrap地址要和prev方法中打印出来的地址一样.
@@ -431,7 +431,7 @@ mod tests {
         let arc_hmap = Arc::new(result_hmap);
 
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
 
         let mut handles = Vec::with_capacity(10);
 
@@ -456,7 +456,7 @@ mod tests {
         let mut handles = Vec::with_capacity(10);
 
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let len = tdu.td_vec.len();
         println!("td size: {}", len);
@@ -502,7 +502,7 @@ mod tests {
     #[tokio::test]
     async fn test_has_night() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
         let tdu = TradingDayUtil::current();
         let date = 20220602;
         println!("{} {}", date, tdu.has_night(&date));
@@ -515,7 +515,7 @@ mod tests {
     #[tokio::test]
     async fn test_trading_day_from_datetime() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
         let tdu = TradingDayUtil::current();
         for day in 6..=9 {
             let datetime = NaiveDate::from_ymd_opt(2022, 8, day)

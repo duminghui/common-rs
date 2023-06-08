@@ -165,7 +165,7 @@ impl MySqlPools {
         Ok(())
     }
 
-    pub fn default() -> Arc<MySqlPool> {
+    pub fn pool() -> Arc<MySqlPool> {
         MYSQL_POOLS
             .read()
             .unwrap()
@@ -208,7 +208,7 @@ mod tests {
         .unwrap();
         let arc_count = Arc::strong_count(MYSQL_POOLS.read().unwrap().default.as_ref().unwrap());
         println!("count: {} count==2: {}", arc_count, arc_count == 2);
-        let pool = MySqlPools::default();
+        let pool = MySqlPools::pool();
         let arc_count = Arc::strong_count(&pool);
         println!("count: {} count==3: {}", arc_count, arc_count == 3);
     }
@@ -228,11 +228,11 @@ mod tests {
         )
         .unwrap();
 
-        println!("3: {}", Arc::strong_count(&MySqlPools::default()));
+        println!("3: {}", Arc::strong_count(&MySqlPools::pool()));
 
         let mut handles = Vec::with_capacity(10);
         for i in 0..10 {
-            let pool = MySqlPools::default();
+            let pool = MySqlPools::pool();
             handles.push(tokio::spawn(async move {
                 let klit = KLineItemUtil::new("hqdb");
                 let item_vec = klit.item_vec_oldest(&pool, "ag", 5, 10).await.unwrap();
@@ -244,6 +244,6 @@ mod tests {
         for handle in handles {
             handle.await.unwrap();
         }
-        println!("5: {}", Arc::strong_count(&MySqlPools::default()));
+        println!("5: {}", Arc::strong_count(&MySqlPools::pool()));
     }
 }

@@ -192,7 +192,7 @@ mod tests {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             init_test_mysql_pools();
-            ConvertTo30m60m120m::init(&MySqlPools::default())
+            ConvertTo30m60m120m::init(&MySqlPools::pool())
                 .await
                 .unwrap();
             let show_breeds = vec!["IC", "TF", "AP", "a", "ag", "al"];
@@ -294,9 +294,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_1() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
 
@@ -310,9 +310,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_2() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
         let breed = "TF";
@@ -325,9 +325,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_3() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
         let breed = "AP";
@@ -340,9 +340,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_4() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
         let breed = "a";
@@ -355,9 +355,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_5() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
         let breed = "ag";
@@ -370,9 +370,9 @@ mod tests {
     #[tokio::test]
     async fn test_to_xm_6() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::default()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::default()).await.unwrap();
-        ConvertTo30m60m120m::init(&MySqlPools::default())
+        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        ConvertTo30m60m120m::init(&MySqlPools::pool())
             .await
             .unwrap();
         let breed = "al";
