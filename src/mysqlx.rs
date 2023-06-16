@@ -181,6 +181,28 @@ impl MySqlPools {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum CreateDBError<'a> {
+    #[error("create database '{0}' err: {1}")]
+    Sqlx(&'a str, sqlx::Error),
+}
+
+pub async fn create_db<'a>(
+    pool: &MySqlPool,
+    db_name: &'a str,
+    charset: Option<&str>,
+    collation: Option<&str>,
+) -> Result<(), CreateDBError<'a>> {
+    let charset = charset.unwrap_or("utf8mb3");
+    let collation = collation.unwrap_or("utf8mb3_general_ci");
+    let sql = format!("CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET {charset} DEFAULT COLLATE {collation}");
+    sqlx::query(&sql)
+        .execute::<_>(pool)
+        .await
+        .map_err(|e| CreateDBError::Sqlx(db_name, e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

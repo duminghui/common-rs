@@ -1,6 +1,6 @@
 [package]
 name = "common-rs"
-version = "0.1.16"
+version = "0.1.17"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -27,7 +27,7 @@ uuid = { version = "1.3.3", optional = true, default-features = false, features 
 
 [features]
 default = ["all"]
-all = ["cell", "mysqlx_batch", "qh", "sizehmap", "timer", "ulog"]
+all = ["cell", "mysqlx_batch", "qh", "sizehmap", "timer", "ulog", "hq"]
 cell = []
 mysqlx = ["yaml", "lazy_static", "log", "serde", "sqlx", "thiserror", "tokio", "uuid"]
 mysqlx_batch = ["mysqlx"]
@@ -37,3 +37,4 @@ timer = ["futures", "tokio"]
 ulog = ["rolling-file", "time", "tracing", "tracing-appender", "tracing-error", "tracing-subscriber"]
 yaml = ["serde", "serde_yaml", "thiserror", "tracing"]
 ymdhms = ["chrono"]
+hq = ["chrono"]

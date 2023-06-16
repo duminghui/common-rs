@@ -24,6 +24,9 @@ pub mod yaml;
 #[cfg(feature = "ymdhms")]
 pub mod ymdhms;
 
+#[cfg(feature = "hq")]
+pub mod hq;
+
 #[cfg(test)]
 mod tests {
     #[test]

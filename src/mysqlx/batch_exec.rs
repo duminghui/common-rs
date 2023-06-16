@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use sqlx::mysql::MySqlArguments;
@@ -47,27 +48,27 @@ type Result = std::result::Result<BatchExecInfo, BatchExecError>;
 
 /// RA: rows affected
 /// C: count
-/// L: limit size
+/// T: threshold
 #[derive(Debug, Default)]
 pub struct BatchExecInfo {
-    is_exec:       bool,
-    limit_size:    u16,
-    entity_count:  u16,
-    rows_affected: u64,
-    elapsed:       Duration,
+    is_exec:        bool,
+    exec_threshold: u16,
+    entity_count:   u16,
+    rows_affected:  u64,
+    elapsed:        Duration,
 }
 
 impl std::fmt::Display for BatchExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_exec {
             f.write_fmt(format_args!(
-                "RA:{}/C:{}(L:{}), use: {:?}",
-                self.rows_affected, self.entity_count, self.limit_size, self.elapsed
+                "RA:{}/C:{}(T:{}), use: {:?}",
+                self.rows_affected, self.entity_count, self.exec_threshold, self.elapsed
             ))
         } else {
             f.write_fmt(format_args!(
-                "*Not Exec* C:{}/L:{}",
-                self.entity_count, self.limit_size,
+                "*Not Exec* C:{}/T:{}",
+                self.entity_count, self.exec_threshold,
             ))
         }
     }
@@ -89,15 +90,17 @@ pub enum BatchExecError {
 
 /// 只支持单线程
 pub struct BatchExec {
-    limit_size: u16,
-    entity_idx: u16,
-    entity_map: HashMap<String, SqlEntity>,
+    pool:           Arc<MySqlPool>,
+    exec_threshold: u16,
+    entity_idx:     u16,
+    entity_map:     HashMap<String, SqlEntity>,
 }
 
 impl BatchExec {
-    pub fn new(limit_size: u16) -> BatchExec {
+    pub fn new(pool: Arc<MySqlPool>, exec_threshold: u16) -> BatchExec {
         BatchExec {
-            limit_size,
+            pool,
+            exec_threshold,
             entity_idx: 0,
             entity_map: Default::default(),
         }
@@ -125,18 +128,20 @@ impl BatchExec {
         entity_vec
     }
 
-    async fn execute(&mut self, pool: &MySqlPool, exec_limit_size: u16) -> Result {
+    async fn execute(&mut self, exec_threshold: u16) -> Result {
         let start = Instant::now();
         let mut exec_info = BatchExecInfo::default();
 
         let entity_len = self.entity_map.len() as u16;
 
-        exec_info.limit_size = exec_limit_size;
+        exec_info.exec_threshold = exec_threshold;
         exec_info.entity_count = entity_len;
 
-        if entity_len == 0 || entity_len < exec_limit_size {
+        if entity_len == 0 || entity_len < exec_threshold {
             return Ok(exec_info);
         }
+
+        let pool = &*self.pool.clone();
 
         let sql_entity_vec = self.sorted_entity_mut_vec();
 
@@ -171,20 +176,20 @@ impl BatchExec {
         Ok(exec_info)
     }
 
-    pub async fn execute_limit(&mut self, pool: &MySqlPool) -> Result {
-        self.execute(pool, self.limit_size).await
+    pub async fn execute_threshold(&mut self) -> Result {
+        self.execute(self.exec_threshold).await
     }
 
-    pub async fn execute_all(&mut self, pool: &MySqlPool) -> Result {
-        self.execute(pool, 0).await
+    pub async fn execute_all(&mut self) -> Result {
+        self.execute(0).await
     }
 
     pub async fn execute_single(
-        pool: &MySqlPool,
+        pool: Arc<MySqlPool>,
         mut sql_entity: SqlEntity,
     ) -> std::result::Result<(), sqlx::Error> {
         sqlx::query_with(&sql_entity.sql, sql_entity.args.take().unwrap())
-            .execute(pool)
+            .execute(pool.as_ref())
             .await?;
         Ok(())
     }
@@ -212,7 +217,8 @@ mod botch_exec_tests {
     }
 
     fn batch_exec() -> BatchExec {
-        let mut be = BatchExec::new(10);
+        let pool = MySqlPools::pool();
+        let mut be = BatchExec::new(pool, 10);
         // let sql = "UPDATE tmp.tbl_tmp SET v_v=? WHERE id=?";
         let sql = "REPLACE INTO tmp.tbl_tmp(v_v,id) VALUES(?,?)";
         let mut args = MySqlArguments::default();
@@ -275,9 +281,8 @@ mod botch_exec_tests {
     #[tokio::test]
     async fn test_batch_exec_execute() {
         init_test_mysql_pools();
-        let pool = MySqlPools::pool();
         let mut be = batch_exec();
-        let result = be.execute_all(&pool).await;
+        let result = be.execute_all().await;
         match result {
             Ok(info) => {
                 println!("Exec info: {}", info);
