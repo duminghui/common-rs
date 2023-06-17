@@ -42,15 +42,21 @@ impl PoolConfig {
 #[derive(Debug, Deserialize)]
 pub struct ConnectConfig {
     #[serde(rename = "host")]
-    host:     String,
+    host:      String,
     #[serde(rename = "port")]
-    port:     u16,
+    port:      u16,
     #[serde(rename = "user")]
-    username: String,
+    username:  String,
     #[serde(rename = "passwd")]
-    password: String,
+    password:  String,
     #[serde(rename = "database")]
-    database: Option<String>,
+    database:  Option<String>,
+    #[serde(rename = "charset")]
+    // utf8
+    charset: String,
+    #[serde(rename = "collation")]
+    // utf8_general_ci
+    collation: String,
 }
 
 pub fn conn_config_from_file(
@@ -91,8 +97,8 @@ pub fn connect_pool(
         .port(config.port)
         .username(&config.username)
         .password(&config.password)
-        .charset("utf8mb4")
-        .collation("utf8mb4_general_ci")
+        .charset(&config.charset)
+        .collation(&config.collation)
         .ssl_mode(MySqlSslMode::Disabled);
 
     if let Some(database) = &config.database {
@@ -187,14 +193,14 @@ pub enum CreateDBError<'a> {
     Sqlx(&'a str, sqlx::Error),
 }
 
+/// charset: utf8mb4
+/// collation: utf8mb4_general_ci
 pub async fn create_db<'a>(
     pool: &MySqlPool,
     db_name: &'a str,
-    charset: Option<&str>,
-    collation: Option<&str>,
+    charset: &str,
+    collation: &str,
 ) -> Result<(), CreateDBError<'a>> {
-    let charset = charset.unwrap_or("utf8mb4");
-    let collation = collation.unwrap_or("utf8mb4_general_ci");
     let sql = format!("CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET {charset} DEFAULT COLLATE {collation}");
     sqlx::query(&sql)
         .execute::<_>(pool)
