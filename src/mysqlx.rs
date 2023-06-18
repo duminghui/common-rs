@@ -14,6 +14,8 @@ use crate::yaml::YamlParseError;
 #[cfg(feature = "mysqlx_batch")]
 pub mod batch_exec;
 
+pub mod exec;
+pub mod table;
 // pub type DateTime = chrono::DateTime<chrono::Utc>;
 
 pub struct PoolConfig {
@@ -185,28 +187,6 @@ impl MySqlPools {
         let pools = MYSQL_POOLS.read().unwrap();
         pools.pool_hmap.get(key).unwrap().clone()
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum CreateDBError<'a> {
-    #[error("create database '{0}' err: {1}")]
-    Sqlx(&'a str, sqlx::Error),
-}
-
-/// charset: utf8mb4
-/// collation: utf8mb4_general_ci
-pub async fn create_db<'a>(
-    pool: &MySqlPool,
-    db_name: &'a str,
-    charset: &str,
-    collation: &str,
-) -> Result<(), CreateDBError<'a>> {
-    let sql = format!("CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET {charset} DEFAULT COLLATE {collation}");
-    sqlx::query(&sql)
-        .execute::<_>(pool)
-        .await
-        .map_err(|e| CreateDBError::Sqlx(db_name, e))?;
-    Ok(())
 }
 
 #[cfg(test)]

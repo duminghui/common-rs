@@ -62,7 +62,7 @@ impl std::fmt::Display for BatchExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_exec {
             f.write_fmt(format_args!(
-                "Rows affected:{}/C:{}(T:{}), use: {:?}",
+                "Rows affected:{}/C:{}(T:{}) [{:?}]",
                 self.rows_affected, self.entity_count, self.exec_threshold, self.elapsed
             ))
         } else {
