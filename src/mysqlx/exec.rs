@@ -15,6 +15,7 @@ impl From<ExecError> for String {
     }
 }
 
+#[derive(Debug)]
 pub struct ExecInfo {
     rows_affected: u64,
     elapsed:       Duration,
@@ -23,7 +24,7 @@ pub struct ExecInfo {
 impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "Rows affected:{} [{:?}]",
+            "Rows affected:{:4} [{:15?}]",
             self.rows_affected, self.elapsed
         ))
     }

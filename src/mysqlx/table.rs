@@ -32,6 +32,7 @@ pub fn table_name(db_name: &str, tbl_name: &str) -> String {
     }
 }
 
+#[derive(Debug)]
 pub struct CreateTableExecInfo {
     pub table_name: String,
     pub exec_info:  ExecInfo,
