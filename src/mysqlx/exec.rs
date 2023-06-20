@@ -24,7 +24,7 @@ pub struct ExecInfo {
 impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "Rows affected:{:4} [{:15?}]",
+            "Rows affected:{:5} [{:>12?}]",
             self.rows_affected, self.elapsed
         ))
     }
