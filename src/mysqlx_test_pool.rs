@@ -19,18 +19,7 @@
 
 #[cfg(test)]
 pub(crate) fn init_test_mysql_pools() {
-    use std::collections::HashMap;
+    use crate::mysqlx::MySqlPools;
 
-    use crate::mysqlx::{conn_config_from_file, ConnectConfig, MySqlPools, PoolConfig};
-
-    let config_hmap: HashMap<String, ConnectConfig> =
-        conn_config_from_file("/opt/kds/work/configs/db-rs.yaml").unwrap();
-    MySqlPools::init_one_pool(
-        &config_hmap,
-        "s133",
-        &PoolConfig::new(1, 5, 3000, 3000),
-        true,
-        true,
-    )
-    .unwrap();
+    MySqlPools::init_pools("./_cfg/c-db-rs.yaml").unwrap();
 }

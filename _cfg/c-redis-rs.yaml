@@ -1,0 +1,14 @@
+local_redis:
+  default: true
+  host: 127.0.0.1
+  port: 6379
+  db: 0
+  username: ~
+  password: 12345678
+
+local_redis_2:
+  host: 127.0.0.1
+  port: 6379
+  db: 0
+  username: ~
+  password: 12345678

@@ -1,0 +1,28 @@
+localdb:
+  default: true
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  passwd: 12345678
+  database: mysql
+  charset: utf8
+  collation: utf8_general_ci
+  minConns: 2
+  maxConns: 20
+  idleTimeoutSecs: 10
+  acquireTimeoutSecs: 10
+  logSql: false
+
+localdb-2:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  passwd: 12345678
+  database: mysql
+  charset: utf8
+  collation: utf8_general_ci
+  minConns: 2
+  maxConns: 20
+  idleTimeoutSecs: 10
+  acquireTimeoutSecs: 10
+  logSql: false

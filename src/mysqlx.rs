@@ -16,63 +16,52 @@ pub mod batch_exec;
 
 pub mod exec;
 pub mod table;
-// pub type DateTime = chrono::DateTime<chrono::Utc>;
-
-pub struct PoolConfig {
-    min_conns:       u32,
-    max_conns:       u32,
-    idle_timeout:    u64,
-    acquire_timeout: u64,
-}
-
-impl PoolConfig {
-    pub fn new(
-        min_conns: u32,
-        max_conns: u32,
-        idle_timeout: u64,
-        acquire_timeout: u64,
-    ) -> PoolConfig {
-        PoolConfig {
-            min_conns,
-            max_conns,
-            idle_timeout,
-            acquire_timeout,
-        }
-    }
-}
 
 #[derive(Debug, Deserialize)]
-pub struct ConnectConfig {
+struct PoolConfig {
+    #[serde(rename = "default")]
+    default:              Option<bool>,
     #[serde(rename = "host")]
-    host:      String,
+    host:                 String,
     #[serde(rename = "port")]
-    port:      u16,
+    port:                 u16,
     #[serde(rename = "user")]
-    username:  String,
+    username:             String,
     #[serde(rename = "passwd")]
-    password:  String,
+    password:             String,
     #[serde(rename = "database")]
-    database:  Option<String>,
+    database:             Option<String>,
     #[serde(rename = "charset")]
     // utf8
     charset: String,
     #[serde(rename = "collation")]
     // utf8_general_ci
     collation: String,
+    #[serde(rename = "minConns")]
+    min_conns:            u32,
+    #[serde(rename = "maxConns")]
+    max_conns:            u32,
+    #[serde(rename = "idleTimeoutSecs")]
+    idle_timeout_secs:    u64,
+    #[serde(rename = "acquireTimeoutSecs")]
+    acquire_timeout_secs: u64,
+    #[serde(rename = "logSql")]
+    log_sql:              bool,
 }
 
-pub fn conn_config_from_file(
+fn conn_config_from_file(
     filepath: impl AsRef<Path> + std::fmt::Debug,
-) -> Result<HashMap<String, ConnectConfig>, YamlParseError> {
-    // let config_hmap = yaml::parse_from_file::<_, HashMap<String, ConnectConfig>>(filepath)?;
-    // Ok(config_hmap)
-    yaml::parse_from_file::<_, HashMap<String, ConnectConfig>>(filepath)
+) -> Result<HashMap<String, PoolConfig>, YamlParseError> {
+    yaml::parse_from_file(filepath)
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum PoolConnError {
-    #[error(r#"db connect info "{0}" not exists!"#)]
-    ConfigKeyNotExist(String),
+    #[error("{0}")]
+    YamlParseError(#[from] YamlParseError),
+
+    #[error(r#"db connect "{0}" not exists!"#)]
+    KeyNotExist(String),
 
     #[error("{0}")]
     Sqlx(#[from] sqlx::Error),
@@ -84,16 +73,7 @@ pub enum PoolConnError {
     InitLockWrite(#[from] PoisonError<RwLockWriteGuard<'static, MySqlPools>>),
 }
 
-pub fn connect_pool(
-    config_hmap: &HashMap<String, ConnectConfig>,
-    key: &str,
-    pool_config: &PoolConfig,
-    log_sql: bool,
-) -> Result<MySqlPool, PoolConnError> {
-    let config = config_hmap
-        .get(key)
-        .ok_or_else(|| PoolConnError::ConfigKeyNotExist(key.to_owned()))?;
-
+fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {
     let mut connect_opts = MySqlConnectOptions::new()
         .host(&config.host)
         .port(config.port)
@@ -107,15 +87,15 @@ pub fn connect_pool(
         connect_opts = connect_opts.database(database);
     }
 
-    if !log_sql {
+    if !config.log_sql {
         connect_opts.log_statements(log::LevelFilter::Off);
     }
 
     let pool_mysql = MySqlPoolOptions::new()
-        .min_connections(pool_config.min_conns)
-        .max_connections(pool_config.max_conns)
-        .idle_timeout(Duration::from_secs(pool_config.idle_timeout))
-        .acquire_timeout(Duration::from_secs(pool_config.acquire_timeout))
+        .min_connections(config.min_conns)
+        .max_connections(config.max_conns)
+        .idle_timeout(Duration::from_secs(config.idle_timeout_secs))
+        .acquire_timeout(Duration::from_secs(config.acquire_timeout_secs))
         .after_connect(|conn, _meta| {
             // fix: time_zone = '+00:00'
             Box::pin(async move {
@@ -154,22 +134,22 @@ pub struct MySqlPools {
 }
 
 impl MySqlPools {
-    pub fn init_one_pool(
-        config_hmap: &HashMap<String, ConnectConfig>,
-        key: &str,
-        pool_config: &PoolConfig,
-        log_sql: bool,
-        default: bool,
+    pub fn init_pools(
+        config_file: impl AsRef<Path> + std::fmt::Debug,
     ) -> Result<(), PoolConnError> {
-        if MYSQL_POOLS.read()?.pool_hmap.contains_key(key) {
-            return Ok(());
-        }
+        let config_hmap = conn_config_from_file(config_file)?;
         let mut pools = MYSQL_POOLS.write()?;
-        let pool_mysql = Arc::new(connect_pool(config_hmap, key, pool_config, log_sql)?);
-        pools.pool_hmap.insert(key.to_owned(), pool_mysql.clone());
-        if default {
-            pools.default = Some(pool_mysql);
+        for (key, config) in config_hmap {
+            let default = config.default;
+            let pool_mysql = Arc::new(connect_pool(config)?);
+            pools.pool_hmap.insert(key.to_owned(), pool_mysql.clone());
+            if let Some(default) = default {
+                if default {
+                    pools.default = Some(pool_mysql);
+                }
+            }
         }
+
         Ok(())
     }
 
@@ -191,67 +171,25 @@ impl MySqlPools {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+
     use std::sync::Arc;
 
-    use super::{conn_config_from_file, ConnectConfig, MySqlPools, PoolConfig, MYSQL_POOLS};
+    use super::conn_config_from_file;
+    use crate::mysqlx::{MySqlPools, MYSQL_POOLS};
 
     #[test]
     fn test_read_conn_config() {
-        let config_hm = conn_config_from_file("/opt/kds/work/configs/db-rs.yaml");
+        let config_hm = conn_config_from_file("./_cfg/c-db-rs.yaml");
         println!("{:#?}", config_hm);
     }
 
     #[tokio::test]
     async fn test_init() {
-        let conf_hmap: HashMap<String, ConnectConfig> =
-            conn_config_from_file("/opt/kds/work/configs/db-rs.yaml").unwrap();
-        MySqlPools::init_one_pool(
-            &conf_hmap,
-            "s133",
-            &PoolConfig::new(1, 1, 3000, 3000),
-            true,
-            true,
-        )
-        .unwrap();
+        MySqlPools::init_pools("./_cfg/c-db-rs.yaml").unwrap();
         let arc_count = Arc::strong_count(MYSQL_POOLS.read().unwrap().default.as_ref().unwrap());
         println!("count: {} count==2: {}", arc_count, arc_count == 2);
         let pool = MySqlPools::pool();
         let arc_count = Arc::strong_count(&pool);
         println!("count: {} count==3: {}", arc_count, arc_count == 3);
-    }
-
-    #[cfg(feature = "qh")]
-    #[tokio::test]
-    async fn test_thread() {
-        use crate::qh::klineitem::KLineItemUtil;
-        let conf_hmap: HashMap<String, ConnectConfig> =
-            conn_config_from_file("/opt/kds/work/configs/db-rs.yaml").unwrap();
-        MySqlPools::init_one_pool(
-            &conf_hmap,
-            "s133",
-            &PoolConfig::new(1, 3, 3000, 3000),
-            true,
-            true,
-        )
-        .unwrap();
-
-        println!("3: {}", Arc::strong_count(&MySqlPools::pool()));
-
-        let mut handles = Vec::with_capacity(10);
-        for i in 0..10 {
-            let pool = MySqlPools::pool();
-            handles.push(tokio::spawn(async move {
-                let klit = KLineItemUtil::new("hqdb");
-                let item_vec = klit.item_vec_oldest(&pool, "ag", 5, 10).await.unwrap();
-                for item in item_vec.iter() {
-                    println!("{} {}", i, item);
-                }
-            }))
-        }
-        for handle in handles {
-            handle.await.unwrap();
-        }
-        println!("5: {}", Arc::strong_count(&MySqlPools::pool()));
     }
 }
