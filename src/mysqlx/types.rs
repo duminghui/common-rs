@@ -30,11 +30,7 @@ impl<T> Type<MySql> for VecType<T> {
 impl Decode<'_, MySql> for VecType<String> {
     fn decode(value: MySqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let value = <&str as Decode<MySql>>::decode(value)?;
-        let vec = value
-            .split(",")
-            .into_iter()
-            .map(|v| v.to_owned())
-            .collect::<Vec<_>>();
+        let vec = value.split(',').map(|v| v.to_owned()).collect::<Vec<_>>();
         Ok(VecType(vec))
     }
 }
@@ -43,8 +39,7 @@ impl Decode<'_, MySql> for VecType<NaiveTime> {
     fn decode(value: MySqlValueRef<'_>) -> Result<Self, BoxDynError> {
         let value = <&str as Decode<MySql>>::decode(value)?;
         let vec = value
-            .split(",")
-            .into_iter()
+            .split(',')
             .map(|v| NaiveTime::parse_from_str(v, "%H:%M:%S").unwrap())
             .collect::<Vec<_>>();
         Ok(VecType(vec))

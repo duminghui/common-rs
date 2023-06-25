@@ -1,19 +1,16 @@
 //! 交易时间段相关的数据与操作.
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use futures::TryStreamExt;
-use lazy_static::lazy_static;
 use sqlx::{FromRow, MySqlPool};
 
 use super::KLineTimeError;
 use crate::qh::trading_day::TradingDayUtil;
 use crate::ymdhms::{Hms, TimeRangeHms, Ymd};
 
-lazy_static! {
-    static ref TX_TIME_RANGE_DATA: RwLock<Arc<TxTimeRangeData>> = RwLock::new(Default::default());
-}
+static TX_TIME_RANGE_DATA: OnceLock<Arc<TxTimeRangeData>> = OnceLock::new();
 
 #[derive(FromRow)]
 struct TxTimeRangeDbItem {
@@ -21,6 +18,7 @@ struct TxTimeRangeDbItem {
     rangelist: String,
 }
 
+#[derive(Debug)]
 struct BreedTxTimeRange {
     // 大写
     breed:      String,
@@ -185,14 +183,14 @@ impl From<TxTimeRangeDbItem> for BreedTxTimeRange {
 }
 
 /// 每个品种的交易时间段数据.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TxTimeRangeData {
     breed_ttr_hmap: HashMap<String, BreedTxTimeRange>,
 }
 
 impl TxTimeRangeData {
     pub fn current() -> Arc<TxTimeRangeData> {
-        TX_TIME_RANGE_DATA.read().unwrap().clone()
+        TX_TIME_RANGE_DATA.get().unwrap().clone()
     }
 
     pub async fn init(pool: &MySqlPool) -> Result<(), sqlx::Error> {
@@ -201,7 +199,7 @@ impl TxTimeRangeData {
         }
         let mut tru = TxTimeRangeData::default();
         tru.init_from_db(pool).await?;
-        *TX_TIME_RANGE_DATA.write().unwrap() = Arc::new(tru);
+        TX_TIME_RANGE_DATA.set(Arc::new(tru)).unwrap();
         Ok(())
     }
 
@@ -305,7 +303,7 @@ mod tests {
         BreedInfoVec::init(&MySqlPools::pool()).await.unwrap();
         let mut trd = TxTimeRangeData::default();
         trd.init_from_db(&MySqlPools::pool()).await.unwrap();
-        for BreedInfo { breed, .. } in BreedInfoVec::current().vec() {
+        for BreedInfo { breed, .. } in BreedInfoVec::current() {
             println!(
                 "{}: {:?}",
                 breed,

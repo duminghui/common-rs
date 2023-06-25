@@ -1,10 +1,9 @@
 //! 从Tick拿到的时间生成1m时间.
 
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
-use lazy_static::lazy_static;
 use tracing::error;
 
 use super::tx_time_range::TxTimeRangeData;
@@ -13,11 +12,10 @@ use crate::qh::breed::{BreedInfo, BreedInfoVec};
 use crate::qh::trading_day::TradingDayUtil;
 use crate::ymdhms::{Hms, Ymd};
 
-lazy_static! {
-    static ref CONVERT_1M: RwLock<Arc<ConvertTo1m>> = RwLock::new(Default::default());
-}
+static CONVERT_1M: OnceLock<Arc<ConvertTo1m>> = OnceLock::new();
 
 /// Tick时间转成1m时间
+#[derive(Debug)]
 pub(crate) struct ConvertTo1m {
     trd:               Arc<TxTimeRangeData>,
     tdu:               Arc<TradingDayUtil>,
@@ -40,7 +38,7 @@ pub type TickDateTime = NaiveDateTime;
 
 impl ConvertTo1m {
     pub fn current() -> Arc<ConvertTo1m> {
-        CONVERT_1M.read().unwrap().clone()
+        CONVERT_1M.get().unwrap().clone()
     }
 
     // BreedVec::init
@@ -51,7 +49,7 @@ impl ConvertTo1m {
         }
         let mut tc = ConvertTo1m::default();
         tc.init_for_breed_vec()?;
-        *CONVERT_1M.write().unwrap() = Arc::new(tc);
+        CONVERT_1M.set(Arc::new(tc)).unwrap();
         Ok(())
     }
 
@@ -65,7 +63,7 @@ impl ConvertTo1m {
             return Err(KLineTimeError::TxTimeRangeDataEmpty);
         }
 
-        for BreedInfo { breed, .. } in breed_vec.vec() {
+        for BreedInfo { breed, .. } in breed_vec {
             let mut time_hmap = HashMap::new();
             let tx_time_range_vec = trd.time_range_vec(breed);
             if let Err(err) = tx_time_range_vec {
@@ -546,7 +544,7 @@ mod tests {
         TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
         ConvertTo1m::init().unwrap();
         let t1mcvt = ConvertTo1m::current();
-        for BreedInfo { breed, .. } in BreedInfoVec::current().vec() {
+        for BreedInfo { breed, .. } in BreedInfoVec::current() {
             println!(
                 "{}: {:?}",
                 breed,

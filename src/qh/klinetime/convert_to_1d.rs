@@ -1,16 +1,14 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use lazy_static::lazy_static;
 
 use super::tx_time_range::TxTimeRangeData;
 use super::{KLineTimeError, TimeRangeDateTime};
 use crate::qh::trading_day::TradingDayUtil;
 use crate::ymdhms::{Hms, Ymd};
 
-lazy_static! {
-    static ref CONVERT_1D: RwLock<Arc<ConvertTo1d>> = RwLock::new(Default::default());
-}
+// TODO: NOT INIT
+static CONVERT_1D: OnceLock<Arc<ConvertTo1d>> = OnceLock::new();
 
 pub(crate) struct ConvertTo1d {
     trd: Arc<TxTimeRangeData>,
@@ -28,7 +26,7 @@ impl Default for ConvertTo1d {
 // TradingDayUtil::init
 impl ConvertTo1d {
     pub(crate) fn current() -> Arc<Self> {
-        CONVERT_1D.read().unwrap().clone()
+        CONVERT_1D.get().unwrap().clone()
     }
 
     pub(crate) fn time_range(

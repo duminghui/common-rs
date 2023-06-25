@@ -1,20 +1,14 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, Timelike};
 use futures::TryStreamExt;
-use lazy_static::lazy_static;
 use sqlx::{FromRow, MySqlPool};
 
 use super::klinetime::KLineTimeError;
 use crate::ymdhms::Ymd;
 
-lazy_static! {
-    static ref TRADING_DAY_UTIL: RwLock<Arc<TradingDayUtil>> = RwLock::new(Default::default());
-    // static ref TRADING_DAY_UTIL: RwLock<TradingDayUtil> = RwLock::new(Default::default());
-    // static ref TRADING_DAY_UTIL2: &'static mut TradingDayUtil =
-    //     TradingDayUtil::new_ref_static_mut();
-}
+static TRADING_DAY_UTIL: OnceLock<Arc<TradingDayUtil>> = OnceLock::new();
 
 // cannot call non-const fn <Arc<TradingDayUtilInner> as Default>::default in statics calls in statics are limited to constant functions
 // static TRADING_DAY_UTIL: RwLock<Arc<TradingDayUtilInner>> = RwLock::new(Default::default());
@@ -65,16 +59,11 @@ pub struct TradingDayUtil {
 
 impl TradingDayUtil {
     pub fn current() -> Arc<TradingDayUtil> {
-        TRADING_DAY_UTIL.read().unwrap().clone()
+        TRADING_DAY_UTIL.get().unwrap().clone()
     }
 
     // pub fn current() -> RwLockReadGuard<'static, TradingDayUtil> {
     //     TRADING_DAY_UTIL.read().unwrap()
-    // }
-
-    // 不能用, 不知道在使用lazy_static的情况下怎么调用&mut self的方法
-    // fn new_ref_static_mut() -> &'static mut TradingDayUtil {
-    //     Box::leak(Box::new(TradingDayUtil::default()))
     // }
 
     pub async fn init(pool: &MySqlPool) -> Result<(), TradingDayUtilInitError> {
@@ -83,7 +72,7 @@ impl TradingDayUtil {
         }
         let mut new_inner = TradingDayUtil::default();
         new_inner.init_from_db(pool).await?;
-        *TRADING_DAY_UTIL.write().unwrap() = Arc::new(new_inner);
+        TRADING_DAY_UTIL.set(Arc::new(new_inner)).unwrap();
         Ok(())
     }
 
@@ -333,10 +322,6 @@ impl TradingDayUtil {
 //     fn make_current(self) {
 //         *CURRENT_CONFIG.write().unwrap() = Arc::new(self);
 //     }
-// }
-
-// lazy_static! {
-//     static ref CURRENT_CONFIG: StdRwLock<Arc<Config>> = StdRwLock::new(Default::default());
 // }
 
 #[cfg(test)]

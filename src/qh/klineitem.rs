@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::NaiveDateTime;
 use futures::{StreamExt, TryStreamExt};
-use lazy_static::lazy_static;
 use rust_decimal::Decimal;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Arguments, MySqlPool};
@@ -93,11 +92,9 @@ impl KLineItem {
     }
 }
 
-lazy_static! {
-    static ref KLINE_ITEM_UTILS: RwLock<KLineItemUtils> = RwLock::new(Default::default());
-}
+static KLINE_ITEM_UTILS: OnceLock<KLineItemUtils> = OnceLock::new();
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct KLineItemUtils {
     default:   Option<Arc<KLineItemUtil>>,
     util_hmap: HashMap<String, Arc<KLineItemUtil>>,
@@ -105,17 +102,18 @@ pub struct KLineItemUtils {
 
 impl KLineItemUtils {
     pub fn init_one_util(db: &str, default: bool) {
-        let mut klius = KLINE_ITEM_UTILS.write().unwrap();
+        let mut klius = KLineItemUtils::default();
         let util = Arc::new(KLineItemUtil::new(db));
         if default {
             klius.default = Some(util.clone());
         }
         klius.util_hmap.insert(db.to_owned(), util);
+        KLINE_ITEM_UTILS.set(klius).unwrap();
     }
 
     pub fn util() -> Arc<KLineItemUtil> {
         KLINE_ITEM_UTILS
-            .read()
+            .get()
             .unwrap()
             .default
             .as_ref()
@@ -125,11 +123,12 @@ impl KLineItemUtils {
 
     // 通过key获取util, key=db-suffix
     pub fn by_key(key: &str) -> Arc<KLineItemUtil> {
-        let utils = KLINE_ITEM_UTILS.read().unwrap();
+        let utils = KLINE_ITEM_UTILS.get().unwrap();
         utils.util_hmap.get(key).unwrap().clone()
     }
 }
 
+#[derive(Debug)]
 pub struct KLineItemUtil {
     tbl_tmpl: String,
 }

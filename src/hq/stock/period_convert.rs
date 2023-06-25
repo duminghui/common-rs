@@ -1,18 +1,18 @@
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use chrono::{Duration, NaiveDateTime, NaiveTime};
-use lazy_static::lazy_static;
 
-lazy_static! {
-    static ref TIME_PERIOD_MAP: HashMap<String, HashMap<NaiveTime, NaiveTime>> = {
-        let mut map = HashMap::<String, HashMap<NaiveTime, NaiveTime>>::new();
-        map.insert("5m".to_string(), gen_time_map(5));
-        map.insert("15m".to_string(), gen_time_map(15));
-        map.insert("30m".to_string(), gen_time_map(30));
-        map.insert("60m".to_string(), gen_time_map(60));
-        map.insert("120m".to_string(), gen_time_map(120));
-        map
-    };
+static TIME_PERIOD_MAP: OnceLock<HashMap<String, HashMap<NaiveTime, NaiveTime>>> = OnceLock::new();
+
+pub fn init() {
+    let mut map = HashMap::<String, HashMap<NaiveTime, NaiveTime>>::new();
+    map.insert("5m".to_string(), gen_time_map(5));
+    map.insert("15m".to_string(), gen_time_map(15));
+    map.insert("30m".to_string(), gen_time_map(30));
+    map.insert("60m".to_string(), gen_time_map(60));
+    map.insert("120m".to_string(), gen_time_map(120));
+    TIME_PERIOD_MAP.set(map).unwrap();
 }
 
 fn gen_time_map(period_value: u32) -> HashMap<NaiveTime, NaiveTime> {
@@ -68,6 +68,8 @@ impl Converter {
             return Ok(Self::convert_1d(dt));
         }
         let time_period_map = TIME_PERIOD_MAP
+            .get()
+            .unwrap()
             .get(period)
             .ok_or(format!("时间周期 错误的周期: {}", period))?;
         let time_key = dt.time();
@@ -83,10 +85,11 @@ impl Converter {
 mod tests {
     use chrono::{Duration, NaiveTime};
 
-    use super::TIME_PERIOD_MAP;
+    use super::{init, TIME_PERIOD_MAP};
 
     #[test]
     fn test_gen_time_map() {
+        init();
         let time_range_vec = vec![
             (
                 NaiveTime::from_hms_opt(9, 31, 0).unwrap(),
@@ -97,7 +100,7 @@ mod tests {
                 NaiveTime::from_hms_opt(15, 0, 0).unwrap(),
             ),
         ];
-        let time_map = TIME_PERIOD_MAP.get("120m").unwrap();
+        let time_map = TIME_PERIOD_MAP.get().unwrap().get("120m").unwrap();
         for (start, end) in time_range_vec {
             let mut time = start;
             while time <= end {

@@ -1,16 +1,14 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Weekday};
-use lazy_static::lazy_static;
 
 use super::tx_time_range::TxTimeRangeData;
 use super::{KLineTimeError, TimeRangeDateTime};
 use crate::qh::trading_day::TradingDayUtil;
 use crate::ymdhms::{Hms, Ymd};
 
-lazy_static! {
-    static ref CONVERT_1W: RwLock<Arc<ConvertTo1W>> = RwLock::new(Default::default());
-}
+// TODO: NOT INIT
+static CONVERT_1W: OnceLock<Arc<ConvertTo1W>> = OnceLock::new();
 
 // 后面是否需要重构成将所有的交易日存到内存中, 以加快计算速度?
 pub(crate) struct ConvertTo1W {
@@ -31,7 +29,7 @@ impl Default for ConvertTo1W {
 // TradingDayUtil::init
 impl ConvertTo1W {
     pub(crate) fn current() -> Arc<Self> {
-        CONVERT_1W.read().unwrap().clone()
+        CONVERT_1W.get().unwrap().clone()
     }
 
     /// 先计算一周的结束日期为本周五, 再计算出开始日期: 如果有夜盘, 则为上周五, 如果无夜盘, 则为周一.

@@ -1,7 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{NaiveDateTime, Timelike};
-use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::convert_to_1d::ConvertTo1d;
@@ -26,9 +25,8 @@ pub async fn init(pool: &MySqlPool) -> Result<(), KLineTimeError> {
     Ok(())
 }
 
-lazy_static! {
-    static ref CONVERT_XM: RwLock<Arc<ConvertToXm>> = RwLock::new(Default::default());
-}
+//TODO: NOT INIT
+static CONVERT_XM: OnceLock<Arc<ConvertToXm>> = OnceLock::new();
 
 pub struct ConvertToXm {
     c1m:         Arc<ConvertTo1m>,
@@ -52,7 +50,7 @@ impl Default for ConvertToXm {
 
 impl ConvertToXm {
     pub fn current() -> Arc<ConvertToXm> {
-        CONVERT_XM.read().unwrap().clone()
+        CONVERT_XM.get().unwrap().clone()
     }
 
     /// time 必须是tick time经过处理后的1m, 否则不准确

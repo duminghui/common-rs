@@ -1,30 +1,29 @@
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref PERIOD_MAP: HashMap<String, i32> = {
-        let mut hmap = HashMap::new();
-        hmap.insert("1m".to_owned(), 1);
-        hmap.insert("3m".to_owned(), 3);
-        hmap.insert("5m".to_owned(), 5);
-        hmap.insert("15m".to_owned(), 15);
-        hmap.insert("30m".to_owned(), 30);
-        hmap.insert("60m".to_owned(), 60);
-        hmap.insert("120m".to_owned(), 120);
-        hmap.insert("1d".to_owned(), 1440);
-        hmap.insert("1w".to_owned(), 10080); // 60*24*7
-        hmap.insert("1mth".to_owned(), 43200); // 60*24*30
-        hmap.insert("1month".to_owned(), 43200); // 60*24*30
-        hmap
-    };
-}
+static PERIOD_MAP: OnceLock<HashMap<String, i32>> = OnceLock::new();
 
 pub struct PeriodValue;
 
 impl PeriodValue {
     pub fn pv(period: &str) -> Option<&i32> {
-        PERIOD_MAP.get(period)
+        PERIOD_MAP
+            .get_or_init(|| {
+                let mut hmap = HashMap::new();
+                hmap.insert("1m".to_owned(), 1);
+                hmap.insert("3m".to_owned(), 3);
+                hmap.insert("5m".to_owned(), 5);
+                hmap.insert("15m".to_owned(), 15);
+                hmap.insert("30m".to_owned(), 30);
+                hmap.insert("60m".to_owned(), 60);
+                hmap.insert("120m".to_owned(), 120);
+                hmap.insert("1d".to_owned(), 1440);
+                hmap.insert("1w".to_owned(), 10080); // 60*24*7
+                hmap.insert("1mth".to_owned(), 43200); // 60*24*30
+                hmap.insert("1month".to_owned(), 43200); // 60*24*30
+                hmap
+            })
+            .get(period)
     }
 }
 
@@ -40,7 +39,7 @@ mod tests {
         println!("{:?}", v);
         let v = v.take().unwrap().to_owned();
         println!("{}", v);
-        println!("{:?}", &*PERIOD_MAP);
+        println!("{:?}", PERIOD_MAP.get());
     }
 
     #[test]
@@ -55,7 +54,7 @@ mod tests {
                     println!("{:?}", v);
                     let v = v.take().unwrap().to_owned();
                     println!("{}", v);
-                    println!("{:?}", &*PERIOD_MAP);
+                    println!("{:?}", PERIOD_MAP.get());
                 }))
             }
             for handle in handles {

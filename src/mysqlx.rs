@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, OnceLock, PoisonError, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 
-use lazy_static::lazy_static;
 use serde::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::{ConnectOptions, Executor, MySqlPool};
@@ -122,13 +121,10 @@ fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {
     Ok(pool_mysql)
 }
 
-lazy_static! {
-    static ref MYSQL_POOLS: RwLock<MySqlPools> = RwLock::new(Default::default());
-    // static ref MYSQL_POOLS: Arc<RwLock<MySqlPools>> = Arc::new(Default::default());
-}
+static MYSQL_POOLS: OnceLock<MySqlPools> = OnceLock::new();
 
 /// mysql数据连接池的管理
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MySqlPools {
     default:   Option<Arc<MySqlPool>>,
     pool_hmap: HashMap<String, Arc<MySqlPool>>,
@@ -139,7 +135,7 @@ impl MySqlPools {
         config_file: impl AsRef<Path> + std::fmt::Debug,
     ) -> Result<(), PoolConnError> {
         let config_hmap = conn_config_from_file(config_file)?;
-        let mut pools = MYSQL_POOLS.write()?;
+        let mut pools = MySqlPools::default();
         for (key, config) in config_hmap {
             let default = config.default;
             let pool_mysql = Arc::new(connect_pool(config)?);
@@ -150,22 +146,16 @@ impl MySqlPools {
                 }
             }
         }
-
+        MYSQL_POOLS.set(pools).unwrap();
         Ok(())
     }
 
     pub fn pool() -> Arc<MySqlPool> {
-        MYSQL_POOLS
-            .read()
-            .unwrap()
-            .default
-            .as_ref()
-            .unwrap()
-            .clone()
+        MYSQL_POOLS.get().unwrap().default.as_ref().unwrap().clone()
     }
 
     pub fn by_key(key: &str) -> Arc<MySqlPool> {
-        let pools = MYSQL_POOLS.read().unwrap();
+        let pools = MYSQL_POOLS.get().unwrap();
         pools.pool_hmap.get(key).unwrap().clone()
     }
 }
@@ -187,7 +177,7 @@ mod tests {
     #[tokio::test]
     async fn test_init() {
         MySqlPools::init_pools("./_cfg/c-db-rs.yaml").unwrap();
-        let arc_count = Arc::strong_count(MYSQL_POOLS.read().unwrap().default.as_ref().unwrap());
+        let arc_count = Arc::strong_count(MYSQL_POOLS.get().unwrap().default.as_ref().unwrap());
         println!("count: {} count==2: {}", arc_count, arc_count == 2);
         let pool = MySqlPools::pool();
         let arc_count = Arc::strong_count(&pool);

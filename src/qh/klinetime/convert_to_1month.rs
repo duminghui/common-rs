@@ -1,17 +1,15 @@
 use std::ops::Sub;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime};
-use lazy_static::lazy_static;
 
 use super::tx_time_range::TxTimeRangeData;
 use super::{KLineTimeError, TimeRangeDateTime};
 use crate::qh::trading_day::TradingDayUtil;
 use crate::ymdhms::Ymd;
 
-lazy_static! {
-    static ref CONVERT_1MTH: RwLock<Arc<ConvertTo1Month>> = RwLock::new(Default::default());
-}
+// TODO: NOT INIT
+static CONVERT_1MTH: OnceLock<Arc<ConvertTo1Month>> = OnceLock::new();
 
 pub(crate) struct ConvertTo1Month {
     trd: Arc<TxTimeRangeData>,
@@ -31,7 +29,7 @@ impl Default for ConvertTo1Month {
 // TradingDayUtil::init
 impl ConvertTo1Month {
     pub(crate) fn current() -> Arc<Self> {
-        CONVERT_1MTH.read().unwrap().clone()
+        CONVERT_1MTH.get().unwrap().clone()
     }
 
     pub fn time_range(

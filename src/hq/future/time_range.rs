@@ -1,14 +1,11 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::OnceLock;
 
 use chrono::{NaiveDate, NaiveTime};
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use crate::mysqlx::types::VecType;
-
-// use crate::mysqlx::types::{VecNaiveTime, VecString};
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct TimeRange {
@@ -44,10 +41,7 @@ impl TimeRange {
     }
 }
 
-lazy_static! {
-    static ref TX_TIME_RANGE_DATA: RwLock<Arc<HashMap<String, Arc<TimeRange>>>> =
-        RwLock::new(Default::default());
-}
+static TX_TIME_RANGE_DATA: OnceLock<HashMap<String, TimeRange>> = OnceLock::new();
 
 async fn time_range_list_from_db(pool: &MySqlPool) -> Result<Vec<TimeRange>, sqlx::Error> {
     let sql = "SELECT Breed,TDDay,closestart,closetimes,opentimes,openstart,closeend,ks1day,ks1span,ks1WD,ks1MD FROM basedata.tbl_time_range";
@@ -65,7 +59,7 @@ pub enum TimeRangeError {
 }
 
 pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
-    if !TX_TIME_RANGE_DATA.read().unwrap().is_empty() {
+    if TX_TIME_RANGE_DATA.get().is_some() {
         return Ok(());
     }
     let items = time_range_list_from_db(pool).await?;
@@ -74,22 +68,22 @@ pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
         if item.open_times.len() != item.close_times.len() {
             Err(TimeRangeError::OpenCloseTimeCountError(item.breed.clone()))?;
         }
-        hmap.insert(item.breed.clone(), Arc::new(item));
+        hmap.insert(item.breed.clone(), item);
     }
-    *TX_TIME_RANGE_DATA.write().unwrap() = Arc::new(hmap);
+    TX_TIME_RANGE_DATA.set(hmap).unwrap();
     Ok(())
 }
 
-pub(crate) fn hash_map() -> Arc<HashMap<String, Arc<TimeRange>>> {
-    TX_TIME_RANGE_DATA.read().unwrap().clone()
+pub(crate) fn hash_map<'a>() -> &'a HashMap<String, TimeRange> {
+    TX_TIME_RANGE_DATA.get().unwrap()
 }
 
-pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, String> {
-    let hmap = TX_TIME_RANGE_DATA.read().unwrap();
+pub fn time_range_by_breed(breed: &str) -> Result<&TimeRange, String> {
+    let hmap = TX_TIME_RANGE_DATA.get().unwrap();
     let time_range = hmap
         .get(breed)
         .ok_or_else(|| format!("breed not exist: {}", breed))?;
-    Ok(time_range.clone())
+    Ok(time_range)
 }
 
 #[cfg(test)]

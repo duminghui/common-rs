@@ -1,28 +1,26 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::OnceLock;
 
 use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike};
-use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
 use crate::hq::future::time_range;
 use crate::ymdhms::Hms;
 
-lazy_static! {
-    // 一些通用规则之外的时间点
-    static ref SPECIAL_PERIOD_TIEM_DATA: RwLock<Arc<HashMap<String,HashMap<u16, NaiveTime>>>> = RwLock::new(Default::default());
-}
+// 一些通用规则之外的时间点
+static SPECIAL_PERIOD_TIEM_DATA: OnceLock<HashMap<String, HashMap<u16, NaiveTime>>> =
+    OnceLock::new();
 
 pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertError> {
-    if !SPECIAL_PERIOD_TIEM_DATA.read().unwrap().is_empty() {
+    if SPECIAL_PERIOD_TIEM_DATA.get().is_some() {
         return Ok(());
     }
     time_range::init_from_db(pool).await?;
 
     let mut breed_hhmm_time = HashMap::new();
     let time_range_hmap = time_range::hash_map();
-    for (breed, time_range) in &*time_range_hmap {
+    for (breed, time_range) in time_range_hmap {
         let (open_times, close_times) = time_range.times_vec_unique();
         let mut hhmm_time_map = HashMap::new();
         for idx in 0..open_times.len() {
@@ -44,11 +42,11 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
             }
             let close_time = *unsafe { close_times.get_unchecked(idx) };
             let hhmmss: Hms = close_time.into();
-            hhmm_time_map.insert(hhmmss.hhmm, close_time.clone());
+            hhmm_time_map.insert(hhmmss.hhmm, *close_time);
         }
         breed_hhmm_time.insert(breed.to_string(), hhmm_time_map);
     }
-    *SPECIAL_PERIOD_TIEM_DATA.write().unwrap() = Arc::new(breed_hhmm_time);
+    SPECIAL_PERIOD_TIEM_DATA.set(breed_hhmm_time).unwrap();
 
     Ok(())
 }
@@ -71,7 +69,7 @@ impl Converter1m {
             return Ok(date.and_hms_opt(0, 0, 0).unwrap());
         }
 
-        let hmap = SPECIAL_PERIOD_TIEM_DATA.read().unwrap();
+        let hmap = SPECIAL_PERIOD_TIEM_DATA.get().unwrap();
 
         let datetime = hmap
             .get(breed)
@@ -86,7 +84,7 @@ impl Converter1m {
                     date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap())
                         + Duration::minutes(1)
                 },
-                |v| date.and_time(v.clone()),
+                |v| date.and_time(*v),
             );
 
         Ok(datetime)

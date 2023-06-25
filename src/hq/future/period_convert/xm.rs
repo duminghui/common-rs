@@ -1,8 +1,7 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::OnceLock;
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
-use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
@@ -27,13 +26,10 @@ type TypeMapPeriodTime = HashMap<String, TypeMapTimeTime>;
 // HashMap<Breed,_>
 type TypeMapBreedPeriodTime = HashMap<String, TypeMapPeriodTime>;
 
-lazy_static! {
-    static ref PERIOD_TIEM_DATA: RwLock<Arc<TypeMapBreedPeriodTime>> =
-        RwLock::new(Default::default());
-}
+static PERIOD_TIEM_DATA: OnceLock<TypeMapBreedPeriodTime> = OnceLock::new();
 
 pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertError> {
-    if !PERIOD_TIEM_DATA.read().unwrap().is_empty() {
+    if PERIOD_TIEM_DATA.get().is_some() {
         return Ok(());
     }
     time_range::init_from_db(pool).await?;
@@ -42,7 +38,7 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
     let periods = &["5m", "15m", "30m", "60m", "120m"];
     let date = NaiveDate::default();
     let time_range_hmap = time_range::hash_map();
-    for (breed, time_range) in &*time_range_hmap {
+    for (breed, time_range) in time_range_hmap {
         let (open_times, close_times) = time_range.times_vec_unique();
         let open_times_len = open_times.len();
 
@@ -101,7 +97,7 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
         }
         breed_period_time.insert(breed.to_string(), period_time_map);
     }
-    *PERIOD_TIEM_DATA.write().unwrap() = Arc::new(breed_period_time);
+    PERIOD_TIEM_DATA.set(breed_period_time).unwrap();
     Ok(())
 }
 
@@ -114,7 +110,7 @@ impl ConverterXm {
         dt: &NaiveDateTime,
         trade_date: &NaiveDate,
     ) -> Result<NaiveDateTime, PeriodConvertError> {
-        let period_time_map = PERIOD_TIEM_DATA.read().unwrap();
+        let period_time_map = PERIOD_TIEM_DATA.get().unwrap();
 
         let period_time_map = period_time_map
             .get(breed)
@@ -127,7 +123,7 @@ impl ConverterXm {
         let time_key = dt.time();
         let period_time = time_period_info_map
             .get(&time_key)
-            .ok_or(PeriodConvertError::TimeError(dt.clone()))?;
+            .ok_or(PeriodConvertError::TimeError(*dt))?;
         if period_time.use_trade_date {
             Ok(trade_date.and_time(period_time.e_time))
         } else {

@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use futures::TryStreamExt;
-use lazy_static::lazy_static;
 use sqlx::{FromRow, MySqlPool};
 
 use super::{KLineTimeError, TimeRangeDateTime};
@@ -51,11 +50,9 @@ impl Extend<DbItem> for StoreData {
     }
 }
 
-lazy_static! {
-    static ref CONVERT_30M60M120M: RwLock<Arc<ConvertTo30m60m120m>> =
-        RwLock::new(Default::default());
-}
+static CONVERT_30M60M120M: OnceLock<Arc<ConvertTo30m60m120m>> = OnceLock::new();
 
+#[derive(Debug)]
 pub(crate) struct ConvertTo30m60m120m {
     tdu:        Arc<TradingDayUtil>,
     store_data: StoreData,
@@ -72,7 +69,7 @@ impl Default for ConvertTo30m60m120m {
 
 impl ConvertTo30m60m120m {
     pub fn current() -> Arc<ConvertTo30m60m120m> {
-        CONVERT_30M60M120M.read().unwrap().clone()
+        CONVERT_30M60M120M.get().unwrap().clone()
     }
 
     // TradingDayUtil::init
@@ -82,7 +79,7 @@ impl ConvertTo30m60m120m {
         }
         let mut ct = ConvertTo30m60m120m::default();
         ct.init_from_db(pool).await?;
-        *CONVERT_30M60M120M.write().unwrap() = Arc::new(ct);
+        CONVERT_30M60M120M.set(Arc::new(ct)).unwrap();
         Ok(())
     }
 

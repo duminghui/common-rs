@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, OnceLock, PoisonError, RwLockReadGuard, RwLockWriteGuard};
 
-use lazy_static::lazy_static;
 use redis::{
     Client, ConnectionAddr, ConnectionInfo, IntoConnectionInfo, RedisConnectionInfo, RedisError,
     RedisResult,
@@ -65,11 +64,9 @@ pub enum RedisConnError {
     InitLockWrite(#[from] PoisonError<RwLockWriteGuard<'static, RedisClients>>),
 }
 
-lazy_static! {
-    static ref CLIENTS: RwLock<RedisClients> = RwLock::new(Default::default());
-}
+static CLIENTS: OnceLock<RedisClients> = OnceLock::new();
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct RedisClients {
     default:     Option<Arc<Client>>,
     client_hmap: HashMap<String, Arc<Client>>,
@@ -81,7 +78,7 @@ impl RedisClients {
     ) -> Result<(), RedisConnError> {
         let config_hmap = conn_config_from_file(config_file)?;
 
-        let mut clients = CLIENTS.write()?;
+        let mut clients = RedisClients::default();
 
         for (key, conn_info) in config_hmap {
             let default = conn_info.default;
@@ -94,15 +91,16 @@ impl RedisClients {
                 }
             }
         }
+        CLIENTS.set(clients).unwrap();
         Ok(())
     }
 
     pub fn client() -> Arc<Client> {
-        CLIENTS.read().unwrap().default.as_ref().unwrap().clone()
+        CLIENTS.get().unwrap().default.as_ref().unwrap().clone()
     }
 
     pub fn by_key(key: &str) -> Arc<Client> {
-        let clients = CLIENTS.read().unwrap();
+        let clients = CLIENTS.get().unwrap();
         clients.client_hmap.get(key).unwrap().clone()
     }
 }
