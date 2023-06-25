@@ -31,7 +31,7 @@ where
         "# File Content Yaml: {:?}:\n-------content start-------\n{}\n-------content end-------",
         path, file_content
     );
-    println!("{}", content_msg);
+    // println!("{}", content_msg);
     debug!("{}", content_msg);
     let config_hmap = serde_yaml::from_str::<R>(&file_content)?;
     Ok(config_hmap)

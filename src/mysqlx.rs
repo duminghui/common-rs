@@ -16,6 +16,7 @@ pub mod batch_exec;
 
 pub mod exec;
 pub mod table;
+pub mod types;
 
 #[derive(Debug, Deserialize)]
 struct PoolConfig {
