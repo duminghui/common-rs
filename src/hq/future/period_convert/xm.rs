@@ -6,8 +6,8 @@ use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
+use crate::hq::future::time_range;
 use crate::hq::period::PeriodValue;
-use crate::hq::qh::time_range;
 
 #[derive(Debug, Clone)]
 pub struct PeriodTimeInfo {
@@ -143,9 +143,9 @@ mod tests {
     use chrono::{Duration, NaiveDate, NaiveDateTime};
 
     use super::init_from_time_range;
+    use crate::hq::future::period_convert::xm::ConverterXm;
+    use crate::hq::future::time_range;
     use crate::hq::period::PeriodValue;
-    use crate::hq::qh::period_convert::xm::ConverterXm;
-    use crate::hq::qh::time_range;
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 

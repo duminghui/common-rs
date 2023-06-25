@@ -95,7 +95,7 @@ pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, String> {
 #[cfg(test)]
 mod tests {
     use super::{init_from_db, time_range_list_from_db};
-    use crate::hq::qh::time_range::time_range_by_breed;
+    use crate::hq::future::time_range::time_range_by_breed;
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 

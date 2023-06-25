@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
-use crate::hq::qh::time_range;
+use crate::hq::future::time_range;
 use crate::ymdhms::Hms;
 
 lazy_static! {
@@ -99,7 +99,7 @@ mod tests {
     use chrono::NaiveDateTime;
 
     use super::init_from_time_range;
-    use crate::hq::qh::period_convert::m1::Converter1m;
+    use crate::hq::future::period_convert::m1::Converter1m;
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 

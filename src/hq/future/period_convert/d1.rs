@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
-use crate::hq::qh::time_range;
+use crate::hq::future::time_range;
 
 lazy_static! {
     // 一些通用规则之外的时间点
