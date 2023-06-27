@@ -39,7 +39,7 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
     let date = NaiveDate::default();
     let time_range_hmap = time_range::hash_map();
     for (breed, time_range) in time_range_hmap {
-        let (open_times, close_times) = time_range.times_vec_unique();
+        let (open_times, close_times) = time_range.times_vec();
         let open_times_len = open_times.len();
 
         let mut period_time_map = HashMap::new();
@@ -51,8 +51,8 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
             let mut time_vec = Vec::new();
             let mut time_ptime_map = HashMap::new();
             for i in 0..open_times_len {
-                let open_time = date.and_time(unsafe { **open_times.get_unchecked(i) });
-                let mut close_time = date.and_time(unsafe { **close_times.get_unchecked(i) });
+                let open_time = date.and_time(unsafe { *open_times.get_unchecked(i) });
+                let mut close_time = date.and_time(unsafe { *close_times.get_unchecked(i) });
                 if open_time > close_time {
                     close_time += Duration::days(1);
                 }
@@ -159,21 +159,21 @@ mod tests {
         let date = NaiveDate::default() + Duration::days(1);
         let trade_date = date;
         let time_range = time_range::time_range_by_breed(breed).unwrap();
-        let (open_times, close_times) = time_range.times_vec_unique();
+        let (open_times, close_times) = time_range.times_vec();
 
         // 周期时间和对应的时间vec;
         let mut ptime_time_map = HashMap::<NaiveDateTime, Vec<NaiveDateTime>>::new();
         let mut ptime_vec = Vec::<NaiveDateTime>::new();
         for i in 0..open_times.len() {
-            let open_time = unsafe { **open_times.get_unchecked(i) };
-            let close_time = unsafe { **close_times.get_unchecked(i) };
+            let open_time = unsafe { *open_times.get_unchecked(i) };
+            let close_time = unsafe { *close_times.get_unchecked(i) };
             println!("{} ~ {}", open_time, close_time);
         }
         println!("");
 
         for i in 0..open_times.len() {
-            let mut open_time = date.and_time(unsafe { **open_times.get_unchecked(i) });
-            let close_time = date.and_time(unsafe { **close_times.get_unchecked(i) });
+            let mut open_time = date.and_time(unsafe { *open_times.get_unchecked(i) });
+            let close_time = date.and_time(unsafe { *close_times.get_unchecked(i) });
             if open_time > close_time {
                 open_time -= Duration::days(1);
             }

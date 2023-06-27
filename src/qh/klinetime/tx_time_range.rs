@@ -121,7 +121,7 @@ impl BreedTxTimeRange {
     }
 
     fn is_first_minute(&self, trading_day: &u32, time: &impl Timelike) -> bool {
-        let hms = Hms::from(time);
+        let hms: Hms = Hms::from(time);
         if self.has_night {
             if TradingDayUtil::current().has_night(trading_day) {
                 hms == self.tr_vec[0].start

@@ -18,9 +18,9 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
     let mut breed_close_time = HashMap::new();
     let time_range_hmap = time_range::hash_map();
     for (breed, time_range) in time_range_hmap {
-        let (_, close_times) = time_range.times_vec_unique();
+        let (_, close_times) = time_range.times_vec();
         let close_time = close_times.last().unwrap();
-        breed_close_time.insert(breed.to_string(), **close_time);
+        breed_close_time.insert(breed.to_string(), *close_time);
     }
     BREED_CLOSE_TIME_MAP.set(breed_close_time).unwrap();
     Ok(())

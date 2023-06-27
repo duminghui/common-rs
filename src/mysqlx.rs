@@ -134,6 +134,9 @@ impl MySqlPools {
     pub fn init_pools(
         config_file: impl AsRef<Path> + std::fmt::Debug,
     ) -> Result<(), PoolConnError> {
+        if MYSQL_POOLS.get().is_some() {
+            return Ok(());
+        }
         let config_hmap = conn_config_from_file(config_file)?;
         let mut pools = MySqlPools::default();
         for (key, config) in config_hmap {
