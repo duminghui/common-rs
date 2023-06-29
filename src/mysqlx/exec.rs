@@ -18,17 +18,18 @@ impl From<ExecError> for String {
 
 #[derive(Debug)]
 pub struct ExecInfo {
-    rows_affected: u64,
-    elapsed:       Duration,
+    rows_affected:      u64,
+    pub(crate) elapsed: Duration,
 }
 
 impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
+        write!(
+            f,
             "Rows affected:{:6} [{:>12?}]",
             HumanCount(self.rows_affected),
             self.elapsed
-        ))
+        )
     }
 }
 

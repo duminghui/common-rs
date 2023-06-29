@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use chrono::NaiveDate;
 use sqlx::MySqlPool;
@@ -14,10 +14,10 @@ struct TradeDayDbItem {
     night:   i8,
 }
 
-async fn trade_days_from_db(pool: &MySqlPool) -> Result<Vec<TradeDayDbItem>, sqlx::Error> {
+async fn trade_days_from_db(pool: Arc<MySqlPool>) -> Result<Vec<TradeDayDbItem>, sqlx::Error> {
     let sql = "SELECT TDday,TDNext, Night FROM basedata.tbl_calendar_data";
     let items = sqlx::query_as::<_, TradeDayDbItem>(sql)
-        .fetch_all(pool)
+        .fetch_all(&*pool)
         .await?;
     Ok(items)
 }
@@ -42,7 +42,7 @@ impl From<TradeDayDbItem> for TradeDay {
 
 static TRADE_DAY_HMAP: OnceLock<HashMap<NaiveDate, TradeDay>> = OnceLock::new();
 
-pub async fn init_from_db(pool: &MySqlPool) -> Result<(), sqlx::Error> {
+pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), sqlx::Error> {
     if TRADE_DAY_HMAP.get().is_some() {
         return Ok(());
     }
@@ -85,6 +85,6 @@ mod tests {
     #[tokio::test]
     async fn test_init_from_db() {
         init_test_mysql_pools();
-        init_from_db(&MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool()).await.unwrap();
     }
 }

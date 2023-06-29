@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use sqlx::MySqlPool;
@@ -28,7 +28,9 @@ type TypeMapBreedPeriodTime = HashMap<String, TypeMapPeriodTime>;
 
 static PERIOD_TIEM_DATA: OnceLock<TypeMapBreedPeriodTime> = OnceLock::new();
 
-pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertError> {
+static BREED_CONVERTERXM_HMAP: OnceLock<HashMap<String, Arc<ConverterXm>>> = OnceLock::new();
+
+pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConvertError> {
     if PERIOD_TIEM_DATA.get().is_some() {
         return Ok(());
     }
@@ -95,16 +97,54 @@ pub async fn init_from_time_range(pool: &MySqlPool) -> Result<(), PeriodConvertE
             }
             period_time_map.insert(period.to_string(), time_ptime_map);
         }
-        breed_period_time.insert(breed.to_string(), period_time_map);
+        breed_period_time.insert(breed.to_string(), Arc::new(ConverterXm { period_time_map }));
     }
-    PERIOD_TIEM_DATA.set(breed_period_time).unwrap();
+    BREED_CONVERTERXM_HMAP.set(breed_period_time).unwrap();
     Ok(())
 }
 
-pub struct ConverterXm;
+#[derive(Debug)]
+pub struct ConverterXm {
+    period_time_map: HashMap<String, HashMap<NaiveTime, PeriodTimeInfo>>,
+}
 
 impl ConverterXm {
     pub fn convert(
+        &self,
+        period: &str,
+        dt: &NaiveDateTime,
+        trade_date: &NaiveDate,
+    ) -> Result<NaiveDateTime, PeriodConvertError> {
+        let time_period_info_map = self
+            .period_time_map
+            .get(period)
+            .ok_or(PeriodConvertError::PeriodError(period.to_string()))?;
+
+        let time_key = dt.time();
+        let period_time = time_period_info_map
+            .get(&time_key)
+            .ok_or(PeriodConvertError::TimeError(*dt))?;
+        if period_time.use_trade_date {
+            Ok(trade_date.and_time(period_time.e_time))
+        } else {
+            Ok(dt.date().and_time(period_time.e_time))
+        }
+    }
+}
+
+pub(crate) fn by_breed(breed: &str) -> Result<Arc<ConverterXm>, PeriodConvertError> {
+    let converter1m = BREED_CONVERTERXM_HMAP
+        .get()
+        .unwrap()
+        .get(breed)
+        .ok_or(PeriodConvertError::BreedError(breed.to_string()))?
+        .clone();
+    Ok(converter1m)
+}
+
+impl ConverterXm {
+    #[allow(unused)]
+    pub fn convert_tmp(
         breed: &str,
         period: &str,
         dt: &NaiveDateTime,
@@ -148,14 +188,14 @@ mod tests {
     #[tokio::test]
     async fn test_init_from_time_range() {
         init_test_mysql_pools();
-        let r = init_from_time_range(&MySqlPools::pool()).await;
+        let r = init_from_time_range(MySqlPools::pool()).await;
         println!("r: {:?}", r);
     }
 
     async fn test_breed_period(breed: &str, period: &str) {
         println!("==== {} {} ======", breed, period);
         init_test_mysql_pools();
-        init_from_time_range(&MySqlPools::pool()).await.unwrap();
+        init_from_time_range(MySqlPools::pool()).await.unwrap();
         let date = NaiveDate::default() + Duration::days(1);
         let trade_date = date;
         let time_range = time_range::time_range_by_breed(breed).unwrap();
@@ -180,7 +220,8 @@ mod tests {
             let mut time = open_time + Duration::minutes(1);
 
             while time <= close_time {
-                let period_time = ConverterXm::convert(breed, period, &time, &trade_date).unwrap();
+                let period_time =
+                    ConverterXm::convert_tmp(breed, period, &time, &trade_date).unwrap();
                 let entity = ptime_time_map.entry(period_time).or_insert_with_key(|k| {
                     ptime_vec.push(k.clone());
                     Vec::new()

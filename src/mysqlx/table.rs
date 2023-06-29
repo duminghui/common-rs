@@ -18,29 +18,151 @@
 //     }
 // }
 
+use std::cmp::max;
 use std::sync::Arc;
+use std::time::Duration;
 
+use itertools::Itertools;
 use sqlx::MySqlPool;
 
-use super::exec::{exec_sql, ExecError, ExecInfo};
+use super::exec::{exec_sql, ExecError};
 
 pub fn table_name(db_name: &str, tbl_name: &str) -> String {
     if db_name.is_empty() {
-        tbl_name.to_string()
+        format!("`{}`", tbl_name)
     } else {
         format!("`{}`.`{}`", db_name, tbl_name)
     }
 }
 
-#[derive(Debug)]
-pub struct CreateTableExecInfo {
-    pub table_name: String,
-    pub exec_info:  ExecInfo,
+struct TableField {
+    name:    String,
+    r#type:  String,
+    null:    bool,
+    default: String,
+    comment: String,
 }
 
-impl std::fmt::Display for CreateTableExecInfo {
+impl std::fmt::Display for TableField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}, {}", self.table_name, self.exec_info))
+        let null_str = if self.null { "" } else { " NOT NULL" };
+        let default_str = if self.default.is_empty() {
+            "".into()
+        } else {
+            format! {" DEFAULT {}",self.default}
+        };
+        write!(
+            f,
+            "{} {}{}{} COMMENT '{}',",
+            self.name, self.r#type, null_str, default_str, self.comment
+        )
+    }
+}
+
+pub struct TableCreator {
+    table_name:   String,
+    field_vec:    Vec<TableField>,
+    primary_keys: String,
+}
+
+impl std::fmt::Display for TableCreator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "CREATE TABLE IF NOT EXISTS {} (", self.table_name)?;
+        for field in self.field_vec.iter() {
+            writeln!(f, "  {}", field)?;
+        }
+        writeln!(f, "  PRIMARY KEY ({})", self.primary_keys)?;
+        writeln!(f, ") ENGINE=InnoDB")
+    }
+}
+
+impl std::fmt::Debug for TableCreator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "CREATE TABLE IF NOT EXISTS {} (", self.table_name)?;
+        let (name_padding, type_padding, null_padding, default_padding) =
+            self.field_vec.iter().fold(
+                (0usize, 0usize, 0usize, 0usize),
+                |(nl, tl, nll, dl), field| {
+                    let nl = max(nl, field.name.len());
+                    let tl = max(tl, field.r#type.len());
+                    let f_nll_len = if field.null { 0 } else { 10 };
+                    let nll = max(nll, f_nll_len as usize);
+                    let dl = max(dl, if field.default.is_empty() { 0 } else { 14 });
+                    (nl, tl, nll, dl)
+                },
+            );
+
+        for field in self.field_vec.iter() {
+            let null_str = if field.null { "" } else { "  NOT NULL" };
+            let default_str = if field.default.is_empty() {
+                "".into()
+            } else {
+                format!("  DEFAULT {}", field.default)
+            };
+
+            writeln!(
+                f,
+                "  {:name_padding$}  {:type_padding$}{:null_padding$}{:default_padding$}  COMMENT '{}',",
+                field.name, field.r#type, null_str,default_str, field.comment
+            )?;
+        }
+        writeln!(f, "  PRIMARY KEY ({})", self.primary_keys)?;
+        writeln!(f, ") ENGINE=InnoDB")
+    }
+}
+
+impl TableCreator {
+    pub fn new(db_name: &str, tbl_name: &str) -> TableCreator {
+        let table_name = table_name(db_name, tbl_name);
+        TableCreator {
+            table_name,
+            field_vec: Vec::new(),
+            primary_keys: String::new(),
+        }
+    }
+
+    pub fn add_field(
+        mut self,
+        name: &str,
+        r#type: &str,
+        null: bool,
+        default: &str,
+        comment: &str,
+    ) -> Self {
+        self.field_vec.push(TableField {
+            name: format!("`{}`", name),
+            r#type: r#type.to_string(),
+            null,
+            default: default.to_string(),
+            comment: comment.to_string(),
+        });
+        self
+    }
+
+    pub fn primary_keys(mut self, keys: &[&str]) -> Self {
+        self.primary_keys = keys.iter().map(|v| format!("`{}`", v)).join(",");
+        self
+    }
+
+    pub async fn create(&self, pool: Arc<MySqlPool>) -> Result<TableExecInfo, ExecError> {
+        let sql = self.to_string();
+        let exec_info = exec_sql(pool, &sql).await?;
+        Ok(TableExecInfo {
+            table_name: self.table_name.to_string(),
+            elapsed:    exec_info.elapsed,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct TableExecInfo {
+    pub table_name: String,
+    elapsed:        Duration,
+}
+
+impl std::fmt::Display for TableExecInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} [{:?}]", self.table_name, self.elapsed)
     }
 }
 
@@ -54,14 +176,56 @@ pub async fn create_table(
     sql_template: &str,
     db_name: &str,
     tbl_name: &str,
-) -> Result<CreateTableExecInfo, ExecError> {
+) -> Result<TableExecInfo, ExecError> {
     let table_name = table_name(db_name, tbl_name);
     let sql = sql_template.replace("{{table_name}}", &table_name);
 
-    let r = exec_sql(pool, &sql).await?;
+    let exec_info = exec_sql(pool, &sql).await?;
 
-    Ok(CreateTableExecInfo {
+    Ok(TableExecInfo {
         table_name,
-        exec_info: r,
+        elapsed: exec_info.elapsed,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TableCreator;
+    use crate::mysqlx::MySqlPools;
+    use crate::mysqlx_test_pool::init_test_mysql_pools;
+
+    fn table_creator() -> TableCreator {
+        TableCreator::new("basedata", "tmp")
+            .add_field("f22222", "int(11)", true, "0.0", "字段2")
+            .add_field("f3", "char(8)", false, "", "字段3")
+            .add_field("f4", "char(8)", true, "", "字段4")
+            .add_field("f5", "char(8)", true, "", "字段5")
+            .add_field("f1", "datetime", true, "", "更新时间")
+            .primary_keys(&["f22222", "f3"])
+    }
+
+    #[test]
+    fn test_table_creator_debug() {
+        let tb = table_creator();
+        println!("{:?}", tb);
+    }
+
+    #[test]
+    fn test_table_creator_display() {
+        let tb = table_creator();
+
+        println!("{}", tb);
+    }
+
+    #[tokio::test]
+    async fn test_create_table() {
+        init_test_mysql_pools();
+        let tb = table_creator();
+        let r = tb.create(MySqlPools::pool()).await;
+        if let Err(err) = r {
+            println!("{}", err);
+            return;
+        }
+        println!("{}", r.unwrap());
+    }
 }

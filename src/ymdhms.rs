@@ -137,7 +137,7 @@ pub struct Ymd {
 
 #[allow(unused)]
 impl Ymd {
-    pub(crate) fn from_yyyymmdd(yyyymmdd: u32) -> Ymd {
+    pub fn from_yyyymmdd(yyyymmdd: u32) -> Ymd {
         let year = (yyyymmdd / 10000) as u16;
         let month = (yyyymmdd / 100 % 100) as u8;
         let day = (yyyymmdd % 100) as u8;
@@ -175,6 +175,12 @@ impl fmt::Display for Ymd {
 impl From<&Ymd> for NaiveDate {
     fn from(ymd: &Ymd) -> NaiveDate {
         NaiveDate::from_ymd_opt(ymd.year as i32, ymd.month as u32, ymd.day as u32).unwrap()
+    }
+}
+
+impl From<Ymd> for NaiveDate {
+    fn from(value: Ymd) -> Self {
+        NaiveDate::from_ymd_opt(value.year as i32, value.month as u32, value.day as u32).unwrap()
     }
 }
 

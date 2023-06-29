@@ -48,10 +48,12 @@ impl TimeRangeDbItem {
     }
 }
 
-async fn time_range_list_from_db(pool: &MySqlPool) -> Result<Vec<TimeRangeDbItem>, sqlx::Error> {
+async fn time_range_list_from_db(
+    pool: Arc<MySqlPool>,
+) -> Result<Vec<TimeRangeDbItem>, sqlx::Error> {
     let sql = "SELECT Breed,TDDay,closestart,closetimes,opentimes,openstart,closeend,ks1day,ks1span,ks1WD,ks1MD FROM basedata.tbl_time_range";
     let items = sqlx::query_as::<_, TimeRangeDbItem>(sql)
-        .fetch_all(pool)
+        .fetch_all(&*pool)
         .await?;
     Ok(items)
 }
@@ -60,7 +62,7 @@ static TX_TIME_RANGE_DATA: OnceLock<HashMap<String, Arc<TimeRange>>> = OnceLock:
 
 // 夜盘结束点,收盘点的特殊时间
 #[derive(Debug)]
-pub struct MinuteInfo {
+pub(crate) struct CloseTimeInfo {
     next:                 NaiveTime, // 15:00:00|15:15:00: 下一分钟在夜盘, 其他:正常加一分钟
     non_night_next:       NaiveTime, // 15:00:00|15:15:00: 下一分钟不在夜盘
     is_night_close_2300:  bool,      // 是否夜盘结束点: 23:00
@@ -69,13 +71,13 @@ pub struct MinuteInfo {
 }
 
 #[derive(Debug)]
-pub(crate) struct TimeRange {
+pub struct TimeRange {
     open_times:          Vec<NaiveTime>,
     close_times:         Vec<NaiveTime>,
     has_night:           bool,
     night_open_time:     NaiveTime,
     non_night_open_time: NaiveTime,
-    minute_info_map:     HashMap<NaiveTime, MinuteInfo>,
+    close_time_info_map: HashMap<NaiveTime, CloseTimeInfo>,
 }
 
 impl TimeRange {
@@ -105,16 +107,23 @@ impl TimeRange {
     /// 其他结束点: 当天日期
     /// 其他:
     ///     直接加1分钟
-    pub fn next_minute(&self, dt: &NaiveDateTime, trade_day: &NaiveDate) -> NaiveDateTime {
+    /// 关于返回的NaiveDate:
+    ///     如果是收盘时间点: 返回下一交易日
+    ///     其他, 返回None
+    pub fn next_minute(
+        &self,
+        dt: &NaiveDateTime,
+        trade_day: &NaiveDate,
+    ) -> (NaiveDateTime, Option<NaiveDate>) {
         let date = dt.date();
         let td_info = trade_day::trade_day(&date);
-        self.minute_info_map.get(&dt.time()).map_or_else(
-            || *dt + Duration::minutes(1),
+        self.close_time_info_map.get(&dt.time()).map_or_else(
+            || (*dt + Duration::minutes(1), None),
             |v| {
                 let date = if v.is_night_close_2300 {
                     td_info.unwrap().td_next
                 } else if v.is_night_close_other {
-                    if let Some(_) = td_info {
+                    if td_info.is_some() {
                         date
                     } else {
                         *trade_day
@@ -133,15 +142,20 @@ impl TimeRange {
                 if v.is_day_close {
                     let td_info = td_info.unwrap();
                     if td_info.has_night {
-                        date.and_time(v.next)
+                        (date.and_time(v.next), Some(td_info.td_next))
                     } else {
-                        date.and_time(v.non_night_next)
+                        (date.and_time(v.non_night_next), Some(td_info.td_next))
                     }
                 } else {
-                    date.and_time(v.next)
+                    (date.and_time(v.next), None)
                 }
             },
         )
+    }
+
+    /// 是否一个交易区域的收市时间
+    pub fn is_close_time(&self, time: &NaiveTime) -> bool {
+        self.close_time_info_map.contains_key(time)
     }
 }
 
@@ -157,11 +171,11 @@ pub enum TimeRangeError {
     BreedError(String),
 }
 
-pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
+pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
     if TX_TIME_RANGE_DATA.get().is_some() {
         return Ok(());
     }
-    trade_day::init_from_db(pool).await?;
+    trade_day::init_from_db(pool.clone()).await?;
     let items = time_range_list_from_db(pool).await?;
     let mut tr_hmap = HashMap::new();
     let mut hmap = HashMap::new();
@@ -188,7 +202,7 @@ pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
             let night_open_time = *night_open_time + Duration::minutes(1);
             let non_night_open_time = *non_night_open_time + Duration::minutes(1);
 
-            let mut minute_info_map = HashMap::new();
+            let mut close_time_info_map = HashMap::new();
 
             let time_len = open_times.len();
 
@@ -219,9 +233,9 @@ pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
                     is_day_close = true;
                 }
 
-                minute_info_map.insert(
+                close_time_info_map.insert(
                     close_time,
-                    MinuteInfo {
+                    CloseTimeInfo {
                         next: time_next,
                         non_night_next,
                         is_night_close_2300,
@@ -237,7 +251,7 @@ pub async fn init_from_db(pool: &MySqlPool) -> Result<(), TimeRangeError> {
                 has_night,
                 night_open_time,
                 non_night_open_time,
-                minute_info_map,
+                close_time_info_map,
             })
         });
 
@@ -251,8 +265,7 @@ pub(crate) fn hash_map<'a>() -> &'a HashMap<String, Arc<TimeRange>> {
     TX_TIME_RANGE_DATA.get().unwrap()
 }
 
-#[allow(unused)]
-pub(crate) fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRangeError> {
+pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRangeError> {
     let hmap = TX_TIME_RANGE_DATA.get().unwrap();
     let time_range = hmap
         .get(breed)
@@ -260,28 +273,36 @@ pub(crate) fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRan
     Ok(time_range.clone())
 }
 
-pub fn is_first_minute(breed: &str, dt: &NaiveDateTime) -> Result<bool, TimeRangeError> {
-    TX_TIME_RANGE_DATA
-        .get()
-        .unwrap()
-        .get(breed)
-        .ok_or(TimeRangeError::BreedError(breed.to_string()))
-        .map(|v| v.is_first_minute(dt))
-}
+// pub fn is_first_minute(breed: &str, dt: &NaiveDateTime) -> Result<bool, TimeRangeError> {
+//     TX_TIME_RANGE_DATA
+//         .get()
+//         .unwrap()
+//         .get(breed)
+//         .ok_or(TimeRangeError::BreedError(breed.to_string()))
+//         .map(|v| v.is_first_minute(dt))
+// }
 
-pub fn next_minute(
-    breed: &str,
-    dt: &NaiveDateTime,
-    trade_day: &NaiveDate,
-) -> Result<NaiveDateTime, TimeRangeError> {
-    let datetime = TX_TIME_RANGE_DATA
-        .get()
-        .unwrap()
-        .get(breed)
-        .ok_or(TimeRangeError::BreedError(breed.to_string()))?
-        .next_minute(dt, trade_day);
-    Ok(datetime)
-}
+// pub fn next_minute(
+//     breed: &str,
+//     dt: &NaiveDateTime,
+//     trade_day: &NaiveDate,
+// ) -> Result<(NaiveDateTime, Option<NaiveDate>), TimeRangeError> {
+//     let datetime = TX_TIME_RANGE_DATA
+//         .get()
+//         .unwrap()
+//         .get(breed)
+//         .ok_or(TimeRangeError::BreedError(breed.to_string()))?
+//         .next_minute(dt, trade_day);
+//     Ok(datetime)
+// }
+
+// pub fn breed_exist(breed: &str) -> bool {
+//     TX_TIME_RANGE_DATA
+//         .get()
+//         .unwrap()
+//         .get(breed)
+//         .map_or(false, |_| true)
+// }
 
 #[allow(unused)]
 #[cfg(test)]
@@ -289,7 +310,7 @@ mod tests {
 
     use chrono::{NaiveDate, NaiveDateTime};
 
-    use super::{init_from_db, next_minute, time_range_list_from_db};
+    use super::{init_from_db, time_range_list_from_db};
     use crate::hq::future::time_range::time_range_by_breed;
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
@@ -304,7 +325,7 @@ mod tests {
     async fn print_time_range(breed: &str) {
         println!("============ {} ===============", breed);
         init_test_mysql_pools();
-        init_from_db(&MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool()).await.unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         let open_times = &time_range.open_times;
         let close_times = &time_range.close_times;
@@ -315,7 +336,7 @@ mod tests {
         println!("non_night_open_time: {}", time_range.non_night_open_time);
         let time_len = open_times.len();
 
-        let minute_info_map = &time_range.minute_info_map;
+        let minute_info_map = &time_range.close_time_info_map;
         for i in 0..time_len {
             let close_time = unsafe { close_times.get_unchecked(i) };
             let minute_info = minute_info_map.get(close_time).unwrap();
@@ -366,13 +387,21 @@ mod tests {
 
     async fn test_next_minute(breed: &str, results: &[(&str, &str, &str)]) {
         init_test_mysql_pools();
-        init_from_db(&MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool()).await.unwrap();
         for (source, target, trade_day) in results {
             let source = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();
             let target = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
             let trade_day = NaiveDate::parse_from_str(trade_day, "%Y-%m-%d").unwrap();
-            let next = next_minute(breed, &source, &trade_day).unwrap();
-            println!("{}, next: {}, {}, {}", source, next, target, target == next)
+            let time_range = time_range_by_breed(breed).unwrap();
+            let (next, next_td) = time_range.next_minute(&source, &trade_day);
+            println!(
+                "{}, next: {}, {}, {} {:?}",
+                source,
+                next,
+                target,
+                target == next,
+                next_td
+            )
         }
     }
 
@@ -497,7 +526,7 @@ mod tests {
         // 10:30:00 ~ 11:30:00
         // 13:30:00 ~ 15:00:00
         let breed = "ag";
-        let results = vec![
+        let results: Vec<(&str, &str, &str)> = vec![
             ("2023-06-21 15:00:00", "2023-06-26 09:01:00", "2023-06-26"), // 节假日
             ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
             ("2023-06-27 10:15:00", "2023-06-27 10:31:00", "2023-06-27"),

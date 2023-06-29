@@ -17,10 +17,7 @@ pub struct SqlEntity {
 
 impl std::fmt::Display for SqlEntity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "key:{}, idx:{}, sql:{}",
-            self.key, self.idx, self.sql
-        ))
+        write!(f, "key:{}, idx:{}, sql:{}", self.key, self.idx, self.sql)
     }
 }
 
@@ -61,15 +58,17 @@ pub struct BatchExecInfo {
 impl std::fmt::Display for BatchExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_exec {
-            f.write_fmt(format_args!(
+            write!(
+                f,
                 "Rows affected:{}/C:{}(T:{}) [{:?}]",
                 self.rows_affected, self.entity_count, self.exec_threshold, self.elapsed
-            ))
+            )
         } else {
-            f.write_fmt(format_args!(
+            write!(
+                f,
                 "*Not Exec* C:{}/T:{}",
                 self.entity_count, self.exec_threshold,
-            ))
+            )
         }
     }
 }
