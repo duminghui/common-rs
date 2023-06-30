@@ -85,6 +85,67 @@ impl TimeRange {
         (&self.open_times, &self.close_times)
     }
 
+    /// day为开始的自然日
+    /// 无夜盘的品种, day为交易日返回day的分钟集, day为非交易日返回下一交易日的分钟集
+    /// 有夜盘的品种, day为非交易日返回下一交易日白盘的分钟集, day为交易日时, 返回夜盘分钟集(有夜盘)加白盘分钟集
+    pub fn day_minutes(&self, day: &NaiveDate) -> (Vec<NaiveDateTime>, NaiveDate) {
+        let trade_day = trade_day::trade_day(day);
+        let night_day;
+        let daytime;
+
+        if !self.has_night {
+            night_day = None;
+
+            if let Some(trade_day) = trade_day {
+                daytime = trade_day.td_day;
+            } else {
+                let trade_day = trade_day::next_trade_day(day);
+                daytime = trade_day.td_day;
+            }
+        } else if let Some(trade_day) = trade_day {
+            if trade_day.has_night {
+                night_day = Some(trade_day.td_day);
+            } else {
+                night_day = None;
+            }
+            daytime = trade_day.td_next;
+        } else {
+            let trade_day = trade_day::next_trade_day(day);
+            night_day = None;
+            daytime = trade_day.td_day;
+        }
+
+        let mut minutes = Vec::new();
+
+        let (open_times, close_times) = self.times_vec();
+
+        for i in 0..open_times.len() {
+            if i == 0 && self.has_night && night_day.is_none() {
+                continue;
+            }
+            let day = if self.has_night && i == 0 {
+                night_day.unwrap()
+            } else {
+                daytime
+            };
+            let open_time = *unsafe { open_times.get_unchecked(i) };
+            let close_time = *unsafe { close_times.get_unchecked(i) };
+            let mut time = day.and_time(open_time + Duration::minutes(1));
+            let mut close_time = day.and_time(close_time);
+
+            if close_time < time {
+                close_time += Duration::days(1);
+            }
+
+            while time <= close_time {
+                minutes.push(time);
+                time += Duration::minutes(1);
+            }
+        }
+
+        (minutes, daytime)
+    }
+
     /// dt为自然时间
     pub fn is_first_minute(&self, dt: &NaiveDateTime) -> bool {
         if self.has_night {
@@ -388,11 +449,11 @@ mod tests {
     async fn test_next_minute(breed: &str, results: &[(&str, &str, &str)]) {
         init_test_mysql_pools();
         init_from_db(MySqlPools::pool()).await.unwrap();
+        let time_range = time_range_by_breed(breed).unwrap();
         for (source, target, trade_day) in results {
             let source = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();
             let target = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
             let trade_day = NaiveDate::parse_from_str(trade_day, "%Y-%m-%d").unwrap();
-            let time_range = time_range_by_breed(breed).unwrap();
             let (next, next_td) = time_range.next_minute(&source, &trade_day);
             println!(
                 "{}, next: {}, {}, {} {:?}",
@@ -549,5 +610,51 @@ mod tests {
         ];
 
         test_next_minute(breed, &results).await;
+    }
+
+    async fn print_day_minutes(breed: &str, day: &NaiveDate) {
+        init_test_mysql_pools();
+        init_from_db(MySqlPools::pool()).await.unwrap();
+        let time_range = time_range_by_breed(breed).unwrap();
+        let (minutes, trade_date) = time_range.day_minutes(day);
+        for (idx, minute) in minutes.iter().enumerate() {
+            println!("{:3} {} {}", idx + 1, minute, trade_date);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_lr() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("LR", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_ic() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("IC", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_tf() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("TF", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_sa() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("SA", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_zn() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("zn", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_day_minutes_ag() {
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        print_day_minutes("ag", &day).await;
     }
 }

@@ -46,7 +46,7 @@ pub async fn init(pool: Arc<MySqlPool>) -> Result<(), PeriodConvertError> {
     }
     let mut breed_converter_map = HashMap::new();
     let time_range_hmap = time_range::hash_map();
-    for (breed, _) in time_range_hmap {
+    for breed in time_range_hmap.keys() {
         let converter1m = m1::by_breed(breed).unwrap();
         let converterxm = xm::by_breed(breed).unwrap();
         let converter1d = d1::by_breed(breed).unwrap();

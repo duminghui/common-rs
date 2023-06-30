@@ -8,14 +8,10 @@ use super::PeriodConvertError;
 use crate::hq::future::time_range;
 use crate::ymdhms::Hms;
 
-// 一些通用规则之外的时间点
-static SPECIAL_PERIOD_TIEM_DATA: OnceLock<HashMap<String, HashMap<u16, NaiveTime>>> =
-    OnceLock::new();
-
 static BREED_CONVERTER1M_HAMP: OnceLock<HashMap<String, Arc<Converter1m>>> = OnceLock::new();
 
 pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConvertError> {
-    if SPECIAL_PERIOD_TIEM_DATA.get().is_some() {
+    if BREED_CONVERTER1M_HAMP.get().is_some() {
         return Ok(());
     }
     time_range::init_from_db(pool).await?;
@@ -58,6 +54,7 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
 
 #[derive(Debug)]
 pub struct Converter1m {
+    // 一些通用规则之外的时间点
     hhmm_time_map: HashMap<u16, NaiveTime>,
 }
 
@@ -107,62 +104,12 @@ pub(crate) fn by_breed(breed: &str) -> Result<Arc<Converter1m>, PeriodConvertErr
     Ok(converter1m)
 }
 
-impl Converter1m {
-    /// Tick时间转成1m时间
-    /// 特殊时间点
-    /// 1. 开盘的前一分钟及第一分钟是属于开盘的时间, 如20:59:xx~21:00:59的K线时间为 21:01:00
-    /// 2. 每个交易段的最后时间是属于该段结束时间,  如11:30:00K线时间为11:30:00
-    /// 3. 00:00:00时间是属于00:00:00, 而不是 00:01:00
-    /// 其他时间
-    /// hh:mm:00~xx:mm:59的数据属于hh:(mm+1):00的K线数据
-    /// time 为自然时间
-    #[allow(unused)]
-    pub(crate) fn convert_tmp(
-        breed: &str,
-        dt: &NaiveDateTime,
-    ) -> Result<NaiveDateTime, PeriodConvertError> {
-        let date = dt.date();
-        let hms = Hms::from(dt);
-
-        let hmap = SPECIAL_PERIOD_TIEM_DATA.get().unwrap();
-
-        let datetime = hmap
-            .get(breed)
-            .ok_or(PeriodConvertError::BreedError(breed.to_string()))?
-            .get(&hms.hhmm)
-            .map_or_else(
-                || {
-                    let time = dt.time();
-                    let hour = time.hour();
-                    let min = time.minute();
-
-                    date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap())
-                        + Duration::minutes(1)
-                },
-                |v| {
-                    if hms.hhmm == 0 {
-                        if hms.second == 0 {
-                            date.and_hms_opt(0, 0, 0).unwrap()
-                        } else {
-                            date.and_hms_opt(0, 1, 0).unwrap()
-                        }
-                    } else {
-                        date.and_time(*v)
-                    }
-                },
-            );
-
-        Ok(datetime)
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use chrono::NaiveDateTime;
 
-    use super::init_from_time_range;
-    use crate::hq::future::period_convert::m1::Converter1m;
+    use super::{by_breed, init_from_time_range};
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 
@@ -181,7 +128,9 @@ mod tests {
         for (source, target) in results {
             let dt = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();
 
-            let time_1m = Converter1m::convert_tmp(breed, &dt).unwrap();
+            let converter1m = by_breed(breed).unwrap();
+
+            let time_1m = converter1m.convert(&dt);
             let time_t = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
             println!("{}: {} {} {}", source, time_1m, target, time_1m == time_t)
         }
