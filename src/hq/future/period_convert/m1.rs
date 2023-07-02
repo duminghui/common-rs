@@ -19,11 +19,10 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
     let mut breed_converter1m_hmap = HashMap::new();
     let time_range_hmap = time_range::hash_map();
     for (breed, time_range) in time_range_hmap {
-        let (open_times, close_times) = time_range.times_vec();
+        let times_vec = time_range.times_vec();
         let mut hhmm_time_map = HashMap::new();
-        for idx in 0..open_times.len() {
+        for (idx, (open_time, close_time)) in times_vec.iter().enumerate() {
             if idx == 0 {
-                let open_time = unsafe { open_times.get_unchecked(idx) };
                 let hhmmss: Hms = open_time.into();
                 match hhmmss.hhmmss {
                     9_00_00 => {
@@ -38,11 +37,13 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
                     start => panic!("error start: {}", start),
                 }
             }
-            let close_time = unsafe { close_times.get_unchecked(idx) };
             let hhmmss: Hms = close_time.into();
             hhmm_time_map.insert(hhmmss.hhmm, *close_time);
         }
-        if unsafe { *close_times.get_unchecked(0) } < NaiveTime::from_hms_opt(3, 0, 0).unwrap() {
+
+        let (_, first_close_time) = unsafe { times_vec.get_unchecked(0) };
+
+        if *first_close_time < NaiveTime::from_hms_opt(3, 0, 0).unwrap() {
             hhmm_time_map.insert(0u16, NaiveTime::from_hms_opt(0, 0, 0).unwrap());
         }
         breed_converter1m_hmap.insert(breed.to_string(), Arc::new(Converter1m { hhmm_time_map }));

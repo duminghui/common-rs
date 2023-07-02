@@ -18,9 +18,13 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
     let mut breed_converter1d_map = HashMap::new();
     let time_range_hmap = time_range::hash_map();
     for (breed, time_range) in time_range_hmap {
-        let (_, close_times) = time_range.times_vec();
-        let close_time = *close_times.last().unwrap();
-        breed_converter1d_map.insert(breed.to_string(), Arc::new(Converter1d { close_time }));
+        let (_, close_time) = time_range.times_vec().last().unwrap();
+        breed_converter1d_map.insert(
+            breed.to_string(),
+            Arc::new(Converter1d {
+                close_time: *close_time,
+            }),
+        );
     }
     BREED_CONVERTER1D_MAP.set(breed_converter1d_map).unwrap();
     Ok(())

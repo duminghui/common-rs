@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use chrono::{Duration, NaiveDate};
+use chrono::NaiveDate;
 use sqlx::MySqlPool;
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 struct TradeDayDbItem {
     #[sqlx(rename = "TDday")]
     td_day:  NaiveDate,
@@ -27,19 +27,21 @@ async fn trade_days_from_db(pool: Arc<MySqlPool>) -> Result<Vec<TradeDayDbItem>,
 #[allow(unused)]
 #[derive(Debug)]
 pub struct TradeDay {
-    pub td_day:    NaiveDate,
-    pub td_next:   NaiveDate,
-    pub td_prev:   NaiveDate,
-    pub has_night: bool,
+    pub is_trade_day: bool,
+    pub day:          NaiveDate,
+    pub td_next:      NaiveDate,
+    pub td_prev:      NaiveDate,
+    pub has_night:    bool,
 }
 
 impl From<TradeDayDbItem> for TradeDay {
     fn from(value: TradeDayDbItem) -> Self {
         TradeDay {
-            td_day:    value.td_day,
-            td_next:   value.td_next,
-            td_prev:   value.td_prev,
-            has_night: value.night == 1,
+            is_trade_day: true,
+            day:          value.td_day,
+            td_next:      value.td_next,
+            td_prev:      value.td_prev,
+            has_night:    value.night == 1,
         }
     }
 }
@@ -52,9 +54,31 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), sqlx::Error> {
     }
     let mut hmap = HashMap::new();
     let trade_day_vec = trade_days_from_db(pool).await?;
+
+    let mut prev_day_info: Option<Arc<TradeDay>> = None;
+
     for item in trade_day_vec {
-        hmap.insert(item.td_day, Arc::new(TradeDay::from(item)));
+        if let Some(prev_day_info) = prev_day_info {
+            for day in prev_day_info.day.succ_opt().unwrap().iter_days() {
+                if day == item.td_day {
+                    break;
+                }
+                let day_info = Arc::new(TradeDay {
+                    is_trade_day: false,
+                    day,
+                    td_next: prev_day_info.td_next,
+                    td_prev: prev_day_info.day,
+                    has_night: false,
+                });
+                hmap.insert(day_info.day, day_info);
+            }
+        }
+
+        let day_info = Arc::new(TradeDay::from(item));
+        hmap.insert(day_info.day, day_info.clone());
+        prev_day_info = Some(day_info)
     }
+
     TRADE_DAY_HMAP.set(hmap).unwrap();
     Ok(())
 }
@@ -70,23 +94,22 @@ pub fn has_night(day: &NaiveDate) -> bool {
 /// 返回下一交易日, day是自然时间
 pub fn next_trade_day(day: &NaiveDate) -> &Arc<TradeDay> {
     let trade_day_map = TRADE_DAY_HMAP.get().unwrap();
-    trade_day_map.get(day).map_or_else(
-        || {
-            let mut day = *day;
-            loop {
-                day += Duration::days(1);
-                let trade_day = trade_day_map.get(&day);
-                if let Some(trade_day) = trade_day {
-                    break trade_day;
-                }
-            }
-        },
-        |v| trade_day_map.get(&v.td_next).unwrap(),
-    )
+    trade_day_map
+        .get(day)
+        .map(|v| trade_day_map.get(&v.td_next).unwrap())
+        .unwrap()
 }
 
-pub fn trade_day(day: &NaiveDate) -> Option<&Arc<TradeDay>> {
-    TRADE_DAY_HMAP.get().unwrap().get(day)
+/// 返回时间所处的交易日
+/// 非交易日, 取下一个交易日
+/// 交易日, 15:15:00 之前当前交易日, 之后: 下一交易日
+// pub fn trade_day_by_time(dt: &NaiveDateTime) -> &Arc<TradeDay> {
+
+// }
+
+/// 返回trade_day, 以目前的情况不会出现None
+pub fn trade_day(day: &NaiveDate) -> &Arc<TradeDay> {
+    TRADE_DAY_HMAP.get().unwrap().get(day).unwrap()
 }
 
 #[cfg(test)]
@@ -121,5 +144,16 @@ mod tests {
         let day = NaiveDate::from_ymd_opt(2023, 7, 1).unwrap();
         let trade_day = next_trade_day(&day);
         println!("{} {:?}", day, trade_day);
+    }
+
+    #[test]
+    pub fn test_chrono() {
+        let day = NaiveDate::from_ymd_opt(2023, 12, 30).unwrap();
+        for (idx, day) in day.iter_days().enumerate() {
+            println!("{} {}", idx, day);
+            if idx > 10 {
+                break;
+            }
+        }
     }
 }

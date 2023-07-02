@@ -63,3 +63,17 @@ impl<T> From<T> for SyncUnsafeCell<T> {
         SyncUnsafeCell::new(t)
     }
 }
+
+// impl<T> Deref for SyncUnsafeCell<T> {
+//     type Target = T;
+
+//     fn deref(&self) -> &Self::Target {
+//         self.get_mut()
+//     }
+// }
+
+// impl<T> DerefMut for SyncUnsafeCell<T> {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         self.get_mut()
+//     }
+// }

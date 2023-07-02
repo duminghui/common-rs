@@ -33,6 +33,7 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
 
     let mut breed_period_time = HashMap::new();
     let periods = &["5m", "15m", "30m", "60m", "120m"];
+
     let date = NaiveDate::default();
     let time_range_hmap = time_range::hash_map();
 
@@ -44,9 +45,7 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
     let mut period_time_info_map = HashMap::new();
 
     for (breed, time_range) in time_range_hmap {
-        let (open_times, close_times) = time_range.times_vec();
-
-        let open_times_len = open_times.len();
+        let times_vec = time_range.times_vec();
 
         let mut period_time_map = HashMap::new();
 
@@ -56,13 +55,14 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
             let mut period_s_dt = None;
             let mut time_vec = Vec::new();
             let mut time_ptime_map = HashMap::new();
-            for i in 0..open_times_len {
-                let open_time = date.and_time(unsafe { *open_times.get_unchecked(i) });
-                let mut close_dt = date.and_time(unsafe { *close_times.get_unchecked(i) });
-                if open_time > close_dt {
-                    close_dt += Duration::days(1);
-                }
-                let mut time = open_time + Duration::minutes(1);
+            for (open_time, close_time) in times_vec.iter() {
+                let open_dt = date.and_time(*open_time);
+                let close_dt = if open_time > close_time {
+                    date.succ_opt().unwrap().and_time(*close_time)
+                } else {
+                    date.and_time(*close_time)
+                };
+                let mut time = open_dt + Duration::minutes(1);
                 while time <= close_dt {
                     if period_s_dt.is_none() {
                         period_s_dt = Some(time);
@@ -175,7 +175,7 @@ impl ConverterXm {
         let e_time = period_time_info.e_time;
 
         let datetime = if period_time_info.day_add_1 {
-            dt.date().and_time(e_time) + Duration::days(1)
+            dt.date().succ_opt().unwrap().and_time(e_time)
         } else if period_time_info.use_trade_date {
             trade_date.and_time(e_time)
         } else {
@@ -221,10 +221,7 @@ mod tests {
         init_from_time_range(MySqlPools::pool()).await.unwrap();
 
         let time_range = time_range::time_range_by_breed(breed).unwrap();
-        let (open_times, close_times) = time_range.times_vec();
-        for i in 0..open_times.len() {
-            let open_time = unsafe { *open_times.get_unchecked(i) };
-            let close_time = unsafe { *close_times.get_unchecked(i) };
+        for (open_time, close_time) in time_range.times_vec().iter() {
             println!("{} ~ {}", open_time, close_time);
         }
         println!("");
@@ -395,14 +392,14 @@ mod tests {
         //节假日
         // let day = NaiveDate::from_ymd_opt(2023, 6, 21).unwrap();
         //平常
-        let day = NaiveDate::from_ymd_opt(2023, 6, 26).unwrap();
+        // let day = NaiveDate::from_ymd_opt(2023, 6, 26).unwrap();
         //跨周
-        // let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
+        let day = NaiveDate::from_ymd_opt(2023, 6, 30).unwrap();
 
         // print_breed_period_info(breed, "5m", &day).await;
         // print_breed_period_info(breed, "15m", &day).await;
         // print_breed_period_info(breed, "30m", &day).await;
-        // print_breed_period_info(breed, "60m", &day).await;
-        print_breed_period_info(breed, "120m", &day).await;
+        print_breed_period_info(breed, "60m", &day).await;
+        // print_breed_period_info(breed, "120m", &day).await;
     }
 }

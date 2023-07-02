@@ -31,6 +31,9 @@ impl KLineTable {
             .add_field("volume", "int(11)", true, "0", "成交量(手)")
             .add_field("TotalVolume", "int(11)", true, "0", "总成交量(手)")
             .add_field("amount", "decimal(30,4)", true, "0", "成交额")
+            .add_field("TotalAmount", "decimal(30,4)", true, "0", "总成交额")
+            .add_field("NumT", "int(5)", true, "0", "Tick数量")
+            .add_field("NumK", "int(5)", true, "0", "第几根K线")
             .add_field("io", "int(11)", true, "0", "持仓量")
             .add_field("REFio", "int(11)", true, "0", "昨日持仓量")
             .add_field("REFclose", "decimal(18,4)", true, "0", "昨收")
@@ -40,9 +43,7 @@ impl KLineTable {
             .add_field("REFSetPrice", "decimal(18,4)", true, "0", "昨结价")
             .add_field("uplimitprice", "decimal(18,4)", true, "0", "涨停价")
             .add_field("dwlimitprice", "decimal(18,4)", true, "0", "跌停价")
-            .add_field("NumT", "int(5)", true, "0", "Tick数量")
-            .add_field("NumK", "int(5)", true, "0", "第几根K线")
-            .add_field("time", "decimal(24,4)", true, "0", "trade_time的时间戳")
+            .add_field("time", "decimal(14,4)", true, "0", "trade_time的时间戳")
             .add_field(
                 "update_time",
                 "datetime",
@@ -80,6 +81,8 @@ pub struct KLineItem {
     pub total_volume:  i64,
     #[sqlx(rename = "amount")]
     pub amount:        Decimal,
+    #[sqlx(rename = "TotalAmount")]
+    pub total_amount:  Decimal,
     #[sqlx(rename = "io")]
     pub io:            i32,
     #[sqlx(rename = "REFio")]
@@ -107,7 +110,7 @@ pub struct KLineItem {
 }
 
 impl KLineItem {
-    const REPLACE_INTO_SQL_TEMPLATE: &str = "REPLACE INTO {{table_name}}(trade_date,trade_time,code,period,open,high,low,close,volume,TotalVolume,amount,io,REFio,REFclose,OpenPrice,HighPrice,LowPrice,REFSetPrice,uplimitprice,dwlimitprice,NumT,NumK,time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    const REPLACE_INTO_SQL_TEMPLATE: &str = "REPLACE INTO {{table_name}}(trade_date,trade_time,code,period,open,high,low,close,volume,TotalVolume,amount,TotalAmount,io,REFio,REFclose,OpenPrice,HighPrice,LowPrice,REFSetPrice,uplimitprice,dwlimitprice,NumT,NumK,time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     pub fn sql_entity_replace(&self, key: &str, db: &str, tbl_name: &str) -> SqlEntity {
         let table_name = &table_name(db, tbl_name);
@@ -124,6 +127,7 @@ impl KLineItem {
         args.add(self.volume);
         args.add(self.total_volume);
         args.add(self.amount);
+        args.add(self.total_amount);
         args.add(self.io);
         args.add(self.ref_io);
         args.add(self.ref_close);
@@ -141,7 +145,7 @@ impl KLineItem {
 }
 
 const KLINE_ITEM_VEC_LATEST_BY_SYMBOL_SQL_TEMPLATE: &str =
-"SELECT * FROM (SELECT trade_date,trade_time,code,period,open,high,low,close,volume,TotalVolume,amount,io,REFio,REFclose,OpenPrice,HighPrice,LowPrice,REFSetPrice,uplimitprice,dwlimitprice,NumT,NumK,time FROM {{table_name}} WHERE code=? AND period=? ORDER BY trade_time DESC LIMIT ?) AS T ORDER BY trade_time";
+"SELECT * FROM (SELECT trade_date,trade_time,code,period,open,high,low,close,volume,TotalVolume,amount,TotalAmount,io,REFio,REFclose,OpenPrice,HighPrice,LowPrice,REFSetPrice,uplimitprice,dwlimitprice,NumT,NumK,time FROM {{table_name}} WHERE code=? AND period=? ORDER BY trade_time DESC LIMIT ?) AS T ORDER BY trade_time";
 
 /// 获取某一合约的最新的数据列表, 时间正序.
 pub async fn item_vec_latest_by_symbol(

@@ -107,7 +107,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 mod tests {
     use std::ops::Sub;
 
-    use chrono::{Duration, NaiveDate, NaiveTime};
+    use chrono::{NaiveDate, NaiveTime};
 
     use super::ConvertTo1Month;
     use crate::mysqlx::MySqlPools;
@@ -126,7 +126,7 @@ mod tests {
         let is_had_night = trd.is_had_night(breed);
         while sdate < edate {
             let datetime1 = if is_had_night {
-                sdate.and_time(start_time) - Duration::days(1)
+                sdate.pred_opt().unwrap().and_time(start_time)
             } else {
                 sdate.and_time(start_time)
             };
@@ -150,7 +150,7 @@ mod tests {
                 println!("{} None", datetime2);
             }
 
-            sdate += Duration::days(1);
+            sdate = sdate.succ_opt().unwrap();
         }
     }
 

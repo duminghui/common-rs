@@ -93,7 +93,7 @@ mod tests {
         let trd = TxTimeRangeData::current();
         let tx_range_fix_vec = trd.time_range_fix_vec(breed).unwrap();
         let date = NaiveDate::from(&Ymd::from_yyyymmdd(yyyymmdd));
-        let next_date = date + Duration::days(1);
+        let next_date = date.succ_opt().unwrap();
         let next_td = NaiveDate::from(TradingDayUtil::current().next(&yyyymmdd).unwrap());
 
         for st_hms in tx_range_fix_vec {

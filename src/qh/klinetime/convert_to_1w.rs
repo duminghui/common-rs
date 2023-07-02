@@ -141,7 +141,7 @@ mod tests {
         let is_had_night = trd.is_had_night(breed);
         while sdate < edate {
             let datetime1 = if is_had_night {
-                sdate.and_time(start_time) - Duration::days(1)
+                sdate.pred_opt().unwrap().and_time(start_time)
             } else {
                 sdate.and_time(start_time)
             };
@@ -166,7 +166,7 @@ mod tests {
                 println!("2: {}({}) Out Tx Range", datetime2, datetime2.weekday());
             }
 
-            sdate += Duration::days(1);
+            sdate = sdate.succ_opt().unwrap()
         }
     }
 

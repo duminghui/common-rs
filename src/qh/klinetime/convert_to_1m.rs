@@ -111,7 +111,7 @@ impl ConvertTo1m {
         let sec = time.second();
 
         if hour < 3 {
-            date += Duration::days(1);
+            date = date.succ_opt().unwrap();
         }
         let kl_datetime = self.to_1m(breed, &date, hour as u8, min as u8, sec as u8);
         kl_datetime.map(|v| {
@@ -137,7 +137,7 @@ impl ConvertTo1m {
         let hhmm = hour as u16 * 100 + min as u16;
         let date = match hhmm {
             hhmm if hhmm >= 2058 => NaiveDate::from(tdu.prev(&trading_day)?),
-            hhmm if hhmm < 300 => NaiveDate::from(tdu.prev(&trading_day)?) + Duration::days(1),
+            hhmm if hhmm < 300 => NaiveDate::from(tdu.prev(&trading_day)?).succ_opt().unwrap(),
             _ => NaiveDate::from(&Ymd::from_yyyymmdd(trading_day)),
         };
 

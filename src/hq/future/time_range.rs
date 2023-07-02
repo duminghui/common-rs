@@ -72,8 +72,7 @@ pub(crate) struct CloseTimeInfo {
 
 #[derive(Debug)]
 pub struct TimeRange {
-    open_times:          Vec<NaiveTime>,
-    close_times:         Vec<NaiveTime>,
+    times_vec:           Vec<(NaiveTime, NaiveTime)>,
     has_night:           bool,
     night_open_time:     NaiveTime,
     non_night_open_time: NaiveTime,
@@ -81,8 +80,8 @@ pub struct TimeRange {
 }
 
 impl TimeRange {
-    pub fn times_vec(&self) -> (&Vec<NaiveTime>, &Vec<NaiveTime>) {
-        (&self.open_times, &self.close_times)
+    pub fn times_vec(&self) -> &Vec<(NaiveTime, NaiveTime)> {
+        &self.times_vec
     }
 
     /// day为开始的自然日
@@ -96,30 +95,28 @@ impl TimeRange {
         if !self.has_night {
             night_day = None;
 
-            if let Some(trade_day) = trade_day {
-                daytime = trade_day.td_day;
+            if trade_day.is_trade_day {
+                daytime = trade_day.day;
             } else {
-                let trade_day = trade_day::next_trade_day(day);
-                daytime = trade_day.td_day;
+                daytime = trade_day.td_next
             }
-        } else if let Some(trade_day) = trade_day {
+        } else if trade_day.is_trade_day {
             if trade_day.has_night {
-                night_day = Some(trade_day.td_day);
+                night_day = Some(trade_day.day);
             } else {
                 night_day = None;
             }
             daytime = trade_day.td_next;
         } else {
-            let trade_day = trade_day::next_trade_day(day);
             night_day = None;
-            daytime = trade_day.td_day;
+            daytime = trade_day.td_next;
         }
 
         let mut minutes = Vec::new();
 
-        let (open_times, close_times) = self.times_vec();
-
-        for i in 0..open_times.len() {
+        for (i, (open_time, close_time)) in self.times_vec.iter().enumerate() {
+            let open_time = *open_time;
+            let close_time = *close_time;
             if i == 0 && self.has_night && night_day.is_none() {
                 continue;
             }
@@ -128,16 +125,14 @@ impl TimeRange {
             } else {
                 daytime
             };
-            let open_time = *unsafe { open_times.get_unchecked(i) };
-            let close_time = *unsafe { close_times.get_unchecked(i) };
-            let mut time = day.and_time(open_time + Duration::minutes(1));
-            let mut close_time = day.and_time(close_time);
+            let mut time = day.and_time(open_time) + Duration::minutes(1);
+            let close_dt = if open_time > close_time {
+                day.succ_opt().unwrap().and_time(close_time)
+            } else {
+                day.and_time(close_time)
+            };
 
-            if close_time < time {
-                close_time += Duration::days(1);
-            }
-
-            while time <= close_time {
+            while time <= close_dt {
                 minutes.push(time);
                 time += Duration::minutes(1);
             }
@@ -171,27 +166,21 @@ impl TimeRange {
     /// 关于返回的NaiveDate:
     ///     如果是收盘时间点: 返回下一交易日
     ///     其他, 返回None
-    pub fn next_minute(
-        &self,
-        dt: &NaiveDateTime,
-        trade_day: &NaiveDate,
-    ) -> (NaiveDateTime, Option<NaiveDate>) {
+    pub fn next_minute(&self, dt: &NaiveDateTime) -> (NaiveDateTime, Option<NaiveDate>) {
         let date = dt.date();
         let td_info = trade_day::trade_day(&date);
         self.close_time_info_map.get(&dt.time()).map_or_else(
             || (*dt + Duration::minutes(1), None),
             |v| {
                 let date = if v.is_night_close_2300 {
-                    td_info.unwrap().td_next
+                    td_info.td_next
                 } else if v.is_night_close_other {
-                    if td_info.is_some() {
+                    if td_info.is_trade_day {
                         date
                     } else {
-                        *trade_day
+                        td_info.td_next
                     }
                 } else if v.is_day_close {
-                    let td_info = td_info.unwrap();
-
                     if self.has_night && td_info.has_night {
                         date
                     } else {
@@ -201,7 +190,6 @@ impl TimeRange {
                     date
                 };
                 if v.is_day_close {
-                    let td_info = td_info.unwrap();
                     if td_info.has_night {
                         (date.and_time(v.next), Some(td_info.td_next))
                     } else {
@@ -266,9 +254,13 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
             let mut close_time_info_map = HashMap::new();
 
             let time_len = open_times.len();
+            let mut times_vec = Vec::new();
 
             for i in 0..time_len {
+                let open_time = unsafe { *open_times.get_unchecked(i) };
                 let close_time = unsafe { *close_times.get_unchecked(i) };
+                times_vec.push((open_time, close_time));
+
                 let next_idx = (i + 1) % time_len;
                 let time_next =
                     unsafe { *open_times.get_unchecked(next_idx) + Duration::minutes(1) };
@@ -307,8 +299,7 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
             }
 
             Arc::new(TimeRange {
-                open_times: open_times.clone(),
-                close_times,
+                times_vec,
                 has_night,
                 night_open_time,
                 non_night_open_time,
@@ -334,38 +325,6 @@ pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRangeError
     Ok(time_range.clone())
 }
 
-// pub fn is_first_minute(breed: &str, dt: &NaiveDateTime) -> Result<bool, TimeRangeError> {
-//     TX_TIME_RANGE_DATA
-//         .get()
-//         .unwrap()
-//         .get(breed)
-//         .ok_or(TimeRangeError::BreedError(breed.to_string()))
-//         .map(|v| v.is_first_minute(dt))
-// }
-
-// pub fn next_minute(
-//     breed: &str,
-//     dt: &NaiveDateTime,
-//     trade_day: &NaiveDate,
-// ) -> Result<(NaiveDateTime, Option<NaiveDate>), TimeRangeError> {
-//     let datetime = TX_TIME_RANGE_DATA
-//         .get()
-//         .unwrap()
-//         .get(breed)
-//         .ok_or(TimeRangeError::BreedError(breed.to_string()))?
-//         .next_minute(dt, trade_day);
-//     Ok(datetime)
-// }
-
-// pub fn breed_exist(breed: &str) -> bool {
-//     TX_TIME_RANGE_DATA
-//         .get()
-//         .unwrap()
-//         .get(breed)
-//         .map_or(false, |_| true)
-// }
-
-#[allow(unused)]
 #[cfg(test)]
 mod tests {
 
@@ -376,37 +335,32 @@ mod tests {
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 
-    // #[tokio::test]
-    // async fn test_time_range_list_from_db() {
-    //     init_test_mysql_pools();
-    //     let r = time_range_list_from_db(&MySqlPools::pool()).await;
-    //     println!("{:?}", r)
-    // }
+    #[tokio::test]
+    async fn test_time_range_list_from_db() {
+        init_test_mysql_pools();
+        let r = time_range_list_from_db(MySqlPools::pool()).await;
+        println!("{:?}", r)
+    }
 
     async fn print_time_range(breed: &str) {
         println!("============ {} ===============", breed);
         init_test_mysql_pools();
         init_from_db(MySqlPools::pool()).await.unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
-        let open_times = &time_range.open_times;
-        let close_times = &time_range.close_times;
-        println!("open_times: {:?}", open_times);
-        println!("close_times: {:?}", close_times);
+        println!("times_vec: {:?}", time_range.times_vec);
         println!("has_night: {}", time_range.has_night);
         println!("night_open_time: {}", time_range.night_open_time);
         println!("non_night_open_time: {}", time_range.non_night_open_time);
-        let time_len = open_times.len();
 
         let minute_info_map = &time_range.close_time_info_map;
-        for i in 0..time_len {
-            let close_time = unsafe { close_times.get_unchecked(i) };
+        for (_, close_time) in time_range.times_vec.iter() {
             let minute_info = minute_info_map.get(close_time).unwrap();
             println!("{}: {:?}", close_time, minute_info);
         }
         println!();
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_init_from_db_and_get() {
         // 09:00:00 ~ 10:15:00
         // 10:30:00 ~ 11:30:00
@@ -446,17 +400,16 @@ mod tests {
     // }
     //
 
-    async fn test_next_minute(breed: &str, results: &[(&str, &str, &str)]) {
+    async fn test_next_minute(breed: &str, results: &[(&str, &str)]) {
         init_test_mysql_pools();
         init_from_db(MySqlPools::pool()).await.unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
-        for (source, target, trade_day) in results {
+        for (source, target) in results {
             let source = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();
             let target = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
-            let trade_day = NaiveDate::parse_from_str(trade_day, "%Y-%m-%d").unwrap();
-            let (next, next_td) = time_range.next_minute(&source, &trade_day);
+            let (next, next_td) = time_range.next_minute(&source);
             println!(
-                "{}, next: {}, {}, {} {:?}",
+                "{}, next: {}, t:{}, {} {:?}",
                 source,
                 next,
                 target,
@@ -466,65 +419,65 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_next_minute_lr() {
         // 09:00:00 ~ 10:15:00
         // 10:30:00 ~ 11:30:00
         // 13:30:00 ~ 15:00:00
         let breed = "LR";
         let results = vec![
-            ("2023-06-21 15:00:00", "2023-06-26 09:01:00", "2023-06-26"),
-            ("2023-06-27 09:01:00", "2023-06-27 09:02:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:31:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:31:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:00:00", "2023-06-28 09:01:00", "2023-06-28"),
-            ("2023-06-30 15:00:00", "2023-07-03 09:01:00", "2023-07-03"),
+            ("2023-06-21 15:00:00", "2023-06-26 09:01:00"),
+            ("2023-06-27 09:01:00", "2023-06-27 09:02:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:31:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:31:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:00:00", "2023-06-28 09:01:00"),
+            ("2023-06-30 15:00:00", "2023-07-03 09:01:00"),
         ];
 
         test_next_minute(breed, &results).await;
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_next_minute_ic() {
         // 09:30:00 ~ 11:30:00
         // 13:00:00 ~ 15:00:00
         let breed = "IC";
         let results = vec![
-            ("2023-06-21 15:00:00", "2023-06-26 09:31:00", "2023-06-26"),
-            ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:16:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:01:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:00:00", "2023-06-28 09:31:00", "2023-06-28"),
-            ("2023-06-30 15:00:00", "2023-07-03 09:31:00", "2023-07-03"),
+            ("2023-06-21 15:00:00", "2023-06-26 09:31:00"),
+            ("2023-06-27 09:31:00", "2023-06-27 09:32:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:16:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:01:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:00:00", "2023-06-28 09:31:00"),
+            ("2023-06-30 15:00:00", "2023-07-03 09:31:00"),
         ];
 
         test_next_minute(breed, &results).await;
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_next_minute_tf() {
         // 09:30:00 ~ 11:30:00
         // 13:00:00 ~ 15:15:00
         let breed = "TF";
         let results = vec![
-            ("2023-06-21 15:15:00", "2023-06-26 09:31:00", "2023-06-26"),
-            ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:16:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:01:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:15:00", "2023-06-28 09:31:00", "2023-06-28"),
-            ("2023-06-30 15:15:00", "2023-07-03 09:31:00", "2023-07-03"),
+            ("2023-06-21 15:15:00", "2023-06-26 09:31:00"),
+            ("2023-06-27 09:31:00", "2023-06-27 09:32:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:16:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:01:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:15:00", "2023-06-28 09:31:00"),
+            ("2023-06-30 15:15:00", "2023-07-03 09:31:00"),
         ];
 
         test_next_minute(breed, &results).await;
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_next_minute_sa() {
         // 21:00:00 ~ 23:00:00
         // 09:00:00 ~ 10:15:00
@@ -532,24 +485,25 @@ mod tests {
         // 13:30:00 ~ 15:00:00
         let breed = "SA";
         let results = vec![
-            ("2023-06-21 15:00:00", "2023-06-26 09:01:00", "2023-06-26"), // 节假日
-            ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:31:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:31:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:00:00", "2023-06-27 21:01:00", "2023-06-28"),
-            ("2023-06-27 21:01:00", "2023-06-27 21:02:00", "2023-06-28"),
-            ("2023-06-27 23:00:00", "2023-06-28 09:01:00", "2023-06-28"),
-            ("2023-06-30 15:00:00", "2023-06-30 21:01:00", "2023-06-30"),
-            ("2023-06-30 21:01:00", "2023-06-30 21:02:00", "2023-06-30"),
-            ("2023-06-30 22:01:00", "2023-06-30 22:02:00", "2023-06-30"),
-            ("2023-06-30 23:00:00", "2023-07-03 09:01:00", "2023-07-03"),
+            ("2023-06-21 15:00:00", "2023-06-26 09:01:00"), // 节假日
+            ("2023-06-27 09:31:00", "2023-06-27 09:32:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:31:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:31:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:00:00", "2023-06-27 21:01:00"),
+            ("2023-06-27 21:01:00", "2023-06-27 21:02:00"),
+            ("2023-06-27 23:00:00", "2023-06-28 09:01:00"),
+            ("2023-06-30 15:00:00", "2023-06-30 21:01:00"),
+            ("2023-06-30 21:01:00", "2023-06-30 21:02:00"),
+            ("2023-06-30 22:01:00", "2023-06-30 22:02:00"),
+            ("2023-06-30 23:00:00", "2023-07-03 09:01:00"),
         ];
 
         test_next_minute(breed, &results).await;
     }
 
+    #[tokio::test]
     async fn test_next_minute_zn() {
         // 21:00:00 ~ 01:00:00
         // 09:00:00 ~ 10:15:00
@@ -557,24 +511,24 @@ mod tests {
         // 13:30:00 ~ 15:00:00
         let breed = "zn";
         let results = vec![
-            ("2023-06-21 15:00:00", "2023-06-26 09:01:00", "2023-06-26"), // 节假日
-            ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:31:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:31:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:00:00", "2023-06-27 21:01:00", "2023-06-28"),
-            ("2023-06-27 21:01:00", "2023-06-27 21:02:00", "2023-06-28"),
-            ("2023-06-27 23:00:00", "2023-06-27 23:01:00", "2023-06-28"),
-            ("2023-06-27 23:59:00", "2023-06-28 00:00:00", "2023-06-28"),
-            ("2023-06-28 00:00:00", "2023-06-28 00:01:00", "2023-06-28"),
-            ("2023-06-28 00:58:00", "2023-06-28 00:59:00", "2023-06-28"),
-            ("2023-06-28 00:59:00", "2023-06-28 01:00:00", "2023-06-28"),
-            ("2023-06-28 01:00:00", "2023-06-28 09:01:00", "2023-06-28"),
-            ("2023-06-30 15:00:00", "2023-06-30 21:01:00", "2023-06-30"),
-            ("2023-06-30 21:01:00", "2023-06-30 21:02:00", "2023-06-30"),
-            ("2023-06-30 22:01:00", "2023-06-30 22:02:00", "2023-06-30"),
-            ("2023-07-01 01:00:00", "2023-07-03 09:01:00", "2023-07-03"), // 周六
+            ("2023-06-21 15:00:00", "2023-06-26 09:01:00"), // 节假日
+            ("2023-06-27 09:31:00", "2023-06-27 09:32:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:31:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:31:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:00:00", "2023-06-27 21:01:00"),
+            ("2023-06-27 21:01:00", "2023-06-27 21:02:00"),
+            ("2023-06-27 23:00:00", "2023-06-27 23:01:00"),
+            ("2023-06-27 23:59:00", "2023-06-28 00:00:00"),
+            ("2023-06-28 00:00:00", "2023-06-28 00:01:00"),
+            ("2023-06-28 00:58:00", "2023-06-28 00:59:00"),
+            ("2023-06-28 00:59:00", "2023-06-28 01:00:00"),
+            ("2023-06-28 01:00:00", "2023-06-28 09:01:00"),
+            ("2023-06-30 15:00:00", "2023-06-30 21:01:00"),
+            ("2023-06-30 21:01:00", "2023-06-30 21:02:00"),
+            ("2023-06-30 22:01:00", "2023-06-30 22:02:00"),
+            ("2023-07-01 01:00:00", "2023-07-03 09:01:00"), // 周六
         ];
 
         test_next_minute(breed, &results).await;
@@ -587,26 +541,26 @@ mod tests {
         // 10:30:00 ~ 11:30:00
         // 13:30:00 ~ 15:00:00
         let breed = "ag";
-        let results: Vec<(&str, &str, &str)> = vec![
-            ("2023-06-21 15:00:00", "2023-06-26 09:01:00", "2023-06-26"), // 节假日
-            ("2023-06-27 09:31:00", "2023-06-27 09:32:00", "2023-06-27"),
-            ("2023-06-27 10:15:00", "2023-06-27 10:31:00", "2023-06-27"),
-            ("2023-06-27 11:30:00", "2023-06-27 13:31:00", "2023-06-27"),
-            ("2023-06-27 13:31:00", "2023-06-27 13:32:00", "2023-06-27"),
-            ("2023-06-27 14:31:00", "2023-06-27 14:32:00", "2023-06-27"),
-            ("2023-06-27 15:00:00", "2023-06-27 21:01:00", "2023-06-28"),
-            ("2023-06-27 21:01:00", "2023-06-27 21:02:00", "2023-06-28"),
-            ("2023-06-27 23:00:00", "2023-06-27 23:01:00", "2023-06-28"),
-            ("2023-06-27 23:59:00", "2023-06-28 00:00:00", "2023-06-28"),
-            ("2023-06-28 00:00:00", "2023-06-28 00:01:00", "2023-06-28"),
-            ("2023-06-28 00:58:00", "2023-06-28 00:59:00", "2023-06-28"),
-            ("2023-06-28 00:59:00", "2023-06-28 01:00:00", "2023-06-28"),
-            ("2023-06-28 01:00:00", "2023-06-28 01:01:00", "2023-06-28"),
-            ("2023-06-28 02:30:00", "2023-06-28 09:01:00", "2023-06-28"),
-            ("2023-06-30 15:00:00", "2023-06-30 21:01:00", "2023-06-30"),
-            ("2023-06-30 21:01:00", "2023-06-30 21:02:00", "2023-06-30"),
-            ("2023-06-30 22:01:00", "2023-06-30 22:02:00", "2023-06-30"),
-            ("2023-07-01 02:30:00", "2023-07-03 09:01:00", "2023-07-03"), // 周六
+        let results = vec![
+            ("2023-06-21 15:00:00", "2023-06-26 09:01:00"), // 节假日
+            ("2023-06-27 09:31:00", "2023-06-27 09:32:00"),
+            ("2023-06-27 10:15:00", "2023-06-27 10:31:00"),
+            ("2023-06-27 11:30:00", "2023-06-27 13:31:00"),
+            ("2023-06-27 13:31:00", "2023-06-27 13:32:00"),
+            ("2023-06-27 14:31:00", "2023-06-27 14:32:00"),
+            ("2023-06-27 15:00:00", "2023-06-27 21:01:00"),
+            ("2023-06-27 21:01:00", "2023-06-27 21:02:00"),
+            ("2023-06-27 23:00:00", "2023-06-27 23:01:00"),
+            ("2023-06-27 23:59:00", "2023-06-28 00:00:00"),
+            ("2023-06-28 00:00:00", "2023-06-28 00:01:00"),
+            ("2023-06-28 00:58:00", "2023-06-28 00:59:00"),
+            ("2023-06-28 00:59:00", "2023-06-28 01:00:00"),
+            ("2023-06-28 01:00:00", "2023-06-28 01:01:00"),
+            ("2023-06-28 02:30:00", "2023-06-28 09:01:00"),
+            ("2023-06-30 15:00:00", "2023-06-30 21:01:00"),
+            ("2023-06-30 21:01:00", "2023-06-30 21:02:00"),
+            ("2023-06-30 22:01:00", "2023-06-30 22:02:00"),
+            ("2023-07-01 02:30:00", "2023-07-03 09:01:00"), // 周六
         ];
 
         test_next_minute(breed, &results).await;

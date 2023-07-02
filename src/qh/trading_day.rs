@@ -146,7 +146,7 @@ impl TradingDayUtil {
                 }
             });
             idx += 1;
-            date += Duration::days(1);
+            date = date.succ_opt().unwrap();
         }
         self.td_vec = td_vec;
         self.day_info_map = day_idx_map;
@@ -329,7 +329,7 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use chrono::{Duration, NaiveDate};
+    use chrono::NaiveDate;
 
     use super::TradingDayUtil;
     use crate::mysqlx::MySqlPools;
@@ -474,7 +474,7 @@ mod tests {
                         println!("Next Error 2: {}", yyyymmdd);
                     }
 
-                    date += Duration::days(1);
+                    date = date.succ_opt().unwrap();
                 }
             }));
         }
@@ -567,7 +567,7 @@ mod tests {
     fn test_naive_date() {
         let mut date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();
         for _ in 0..=30 {
-            date += Duration::days(1);
+            date = date.succ_opt().unwrap();
             println!("# {:?}", date.format("%Y-%m-%d").to_string());
         }
         let date = NaiveDate::from_ymd_opt(2022, 6, 8).unwrap();

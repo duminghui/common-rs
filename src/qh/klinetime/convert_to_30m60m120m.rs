@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use futures::TryStreamExt;
 use sqlx::{FromRow, MySqlPool};
 
@@ -137,10 +137,10 @@ impl ConvertTo30m60m120m {
             // 跨天了
             if (shhmmss..23_59_59).contains(&hhmmss) {
                 // 结束时间: 0点之前的时间加一天, 0点之后的时间不做处理
-                edate += Duration::days(1);
+                edate = edate.succ_opt().unwrap();
             } else if hhmmss <= ehhmmss {
                 // 开始时间: 0点之后的时间减一天
-                sdate -= Duration::days(1);
+                sdate = sdate.pred_opt().unwrap();
             }
         } else if e.hour - s.hour >= 7 {
             // 当时间跨段从夜盘到白盘
@@ -152,7 +152,7 @@ impl ConvertTo30m60m120m {
                 let tdu = &self.tdu;
                 if !tdu.is_td(&ymd.yyyymmdd) {
                     let next_td = tdu.next(&ymd.yyyymmdd)?;
-                    edate = NaiveDate::from(next_td)
+                    edate = NaiveDate::from(next_td);
                 }
             } else if hms.hour > 8 {
                 // 白盘时间
@@ -160,7 +160,7 @@ impl ConvertTo30m60m120m {
                 let ymd = Ymd::from(&datetime.date());
                 let tdu = &self.tdu;
                 let prev_td = tdu.prev(&ymd.yyyymmdd)?;
-                sdate = NaiveDate::from(prev_td) + Duration::days(1);
+                sdate = NaiveDate::from(prev_td).succ_opt().unwrap();
             }
         }
         Ok(TimeRangeDateTime::new(
@@ -235,7 +235,7 @@ mod tests {
         let cvt = ConvertTo30m60m120m::current();
         let tx_range_fix_vec = trd.time_range_fix_vec(breed).unwrap();
         let date = NaiveDate::from_ymd_opt(2022, 6, 17).unwrap();
-        let next_date = date + Duration::days(1);
+        let next_date = date.succ_opt().unwrap();
         let next_td = NaiveDate::from(TradingDayUtil::current().next(&20220617).unwrap());
 
         let mut key_vec = vec![];
