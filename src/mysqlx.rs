@@ -14,6 +14,7 @@ use crate::yaml::YamlParseError;
 pub mod batch_exec;
 
 pub mod exec;
+pub mod sql_builder;
 pub mod table;
 pub mod types;
 

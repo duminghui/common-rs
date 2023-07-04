@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use sqlx::MySqlPool;
+
+use crate::ymdhms::Hms;
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 struct TradeDayDbItem {
@@ -103,9 +105,15 @@ pub fn next_trade_day(day: &NaiveDate) -> &Arc<TradeDay> {
 /// 返回时间所处的交易日
 /// 非交易日, 取下一个交易日
 /// 交易日, 15:15:00 之前当前交易日, 之后: 下一交易日
-// pub fn trade_day_by_time(dt: &NaiveDateTime) -> &Arc<TradeDay> {
-
-// }
+pub fn trade_day_by_time(dt: &NaiveDateTime) -> NaiveDate {
+    let day = dt.date();
+    let trade_day = trade_day(&day);
+    if trade_day.is_trade_day && Hms::from(dt).hhmmss <= 151600 {
+        trade_day.day
+    } else {
+        trade_day.td_next
+    }
+}
 
 /// 返回trade_day, 以目前的情况不会出现None
 pub fn trade_day(day: &NaiveDate) -> &Arc<TradeDay> {

@@ -8,6 +8,7 @@ use sqlx::{Arguments, MySqlPool};
 
 use crate::mysqlx::batch_exec::SqlEntity;
 use crate::mysqlx::exec::ExecError;
+use crate::mysqlx::sql_builder::InsertSqlArgsBuilder;
 use crate::mysqlx::table::{table_name, TableCreator, TableExecInfo};
 
 pub struct KLineTable;
@@ -83,6 +84,10 @@ pub struct KLineItem {
     pub amount:        Decimal,
     #[sqlx(rename = "TotalAmount")]
     pub total_amount:  Decimal,
+    #[sqlx(rename = "NumT")]
+    pub num_t:         i16,
+    #[sqlx(rename = "NumK")]
+    pub num_k:         i16,
     #[sqlx(rename = "io")]
     pub io:            i32,
     #[sqlx(rename = "REFio")]
@@ -101,45 +106,42 @@ pub struct KLineItem {
     pub uplimit_price: Decimal,
     #[sqlx(rename = "dwlimitprice")]
     pub dwlimit_price: Decimal,
-    #[sqlx(rename = "NumT")]
-    pub num_t:         i16,
-    #[sqlx(rename = "NumK")]
-    pub num_k:         i16,
     #[sqlx(rename = "time")]
     pub time:          Decimal,
 }
 
 impl KLineItem {
-    const REPLACE_INTO_SQL_TEMPLATE: &str = "REPLACE INTO {{table_name}}(trade_date,trade_time,code,period,open,high,low,close,volume,TotalVolume,amount,TotalAmount,io,REFio,REFclose,OpenPrice,HighPrice,LowPrice,REFSetPrice,uplimitprice,dwlimitprice,NumT,NumK,time) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-
     pub fn sql_entity_replace(&self, key: &str, db: &str, tbl_name: &str) -> SqlEntity {
         let table_name = &table_name(db, tbl_name);
-        let sql = Self::REPLACE_INTO_SQL_TEMPLATE.replace("{{table_name}}", table_name);
-        let mut args = MySqlArguments::default();
-        args.add(self.trade_date);
-        args.add(self.trade_time);
-        args.add(&self.code);
-        args.add(self.period);
-        args.add(self.open);
-        args.add(self.high);
-        args.add(self.low);
-        args.add(self.close);
-        args.add(self.volume);
-        args.add(self.total_volume);
-        args.add(self.amount);
-        args.add(self.total_amount);
-        args.add(self.io);
-        args.add(self.ref_io);
-        args.add(self.ref_close);
-        args.add(self.open_price);
-        args.add(self.high_price);
-        args.add(self.low_price);
-        args.add(self.ref_set_price);
-        args.add(self.uplimit_price);
-        args.add(self.dwlimit_price);
-        args.add(self.num_t);
-        args.add(self.num_k);
-        args.add(self.time);
+
+        let mut builder = InsertSqlArgsBuilder::new(table_name);
+        builder.add("trade_date", self.trade_date);
+        builder.add("trade_time", self.trade_time);
+        builder.add("code", &self.code);
+        builder.add("period", self.period);
+        builder.add("open", self.open);
+        builder.add("high", self.high);
+        builder.add("low", self.low);
+        builder.add("close", self.close);
+        builder.add("volume", self.volume);
+        builder.add("TotalVolume", self.total_volume);
+        builder.add("amount", self.amount);
+        builder.add("TotalAmount", self.total_amount);
+        builder.add("io", self.io);
+        builder.add("REFio", self.ref_io);
+        builder.add("REFclose", self.ref_close);
+        builder.add("OpenPrice", self.open_price);
+        builder.add("HighPrice", self.high_price);
+        builder.add("LowPrice", self.low_price);
+        builder.add("REFSetPrice", self.ref_set_price);
+        builder.add("uplimitprice", self.uplimit_price);
+        builder.add("dwlimitprice", self.dwlimit_price);
+        builder.add("NumT", self.num_t);
+        builder.add("NumK", self.num_k);
+        builder.add("time", self.time);
+
+        let (sql, args) = builder.replace_sql_args();
+
         SqlEntity::new(key, &sql, args)
     }
 }
