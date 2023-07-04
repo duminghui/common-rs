@@ -37,6 +37,8 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
                     start => panic!("error start: {}", start),
                 }
             }
+            // let hhmmss: Hms = open_time.into();
+            // hhmm_time_map.insert(hhmmss.hhmm, *open_time + Duration::minutes(1));
             let hhmmss: Hms = close_time.into();
             hhmm_time_map.insert(hhmmss.hhmm, *close_time);
         }
@@ -77,8 +79,12 @@ impl Converter1m {
                 let time = dt.time();
                 let hour = time.hour();
                 let min = time.minute();
-
+                // let sec = time.second();
+                // if sec == 0 {
+                // date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap())
+                // } else {
                 date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap()) + Duration::minutes(1)
+                // }
             },
             |v| {
                 if hms.hhmm == 0 {
@@ -133,7 +139,7 @@ mod tests {
 
             let time_1m = converter1m.convert(&dt);
             let time_t = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
-            println!("{}: {} {} {}", source, time_1m, target, time_1m == time_t)
+            println!("{}: {} c:{} {}", source, time_1m, target, time_1m == time_t)
         }
     }
 
@@ -296,6 +302,7 @@ mod tests {
             ("2022-06-13 11:30:00", "2022-06-13 11:30:00"),
             ("2022-06-13 13:30:00", "2022-06-13 13:31:00"),
             ("2022-06-13 14:59:00", "2022-06-13 15:00:00"),
+            ("2022-06-13 14:59:01", "2022-06-13 15:00:00"),
             ("2022-06-13 14:59:59", "2022-06-13 15:00:00"),
             ("2022-06-13 15:00:00", "2022-06-13 15:00:00"),
             // 白盘 end
