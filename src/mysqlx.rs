@@ -89,7 +89,7 @@ fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {
     }
 
     if !config.log_sql {
-        connect_opts.log_statements(log::LevelFilter::Off);
+        connect_opts = connect_opts.log_statements(log::LevelFilter::Off);
     }
 
     let pool_mysql = MySqlPoolOptions::new()

@@ -159,7 +159,9 @@ impl BatchExec {
         let mut rows_affected = 0;
         for SqlEntity { sql, args, .. } in sql_entity_vec {
             if let Some(args) = args {
-                let result = sqlx::query_with(&sql, args).execute(&mut transaction).await;
+                let result = sqlx::query_with(&sql, args)
+                    .execute(&mut *transaction)
+                    .await;
                 match result {
                     Ok(result) => {
                         rows_affected += result.rows_affected();
