@@ -8,6 +8,8 @@ use sqlx::MySqlPool;
 use super::trade_day;
 use crate::mysqlx::types::VecType;
 
+pub mod minutes;
+
 #[allow(unused)]
 #[derive(Debug, sqlx::FromRow)]
 struct TimeRangeDbItem {
@@ -72,7 +74,7 @@ pub(crate) struct CloseTimeInfo {
 
 #[derive(Debug)]
 pub struct TimeRange {
-    times_vec:           Vec<(NaiveTime, NaiveTime)>,
+    times_vec:           Vec<(NaiveTime, NaiveTime)>, // Vec<(open_time,close_time)>
     has_night:           bool,
     night_open_time:     NaiveTime,
     non_night_open_time: NaiveTime,

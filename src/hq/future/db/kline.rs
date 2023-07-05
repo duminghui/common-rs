@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use chrono::{NaiveDate, NaiveDateTime};
@@ -108,6 +109,16 @@ pub struct KLineItem {
     pub dwlimit_price: Decimal,
     #[sqlx(rename = "time")]
     pub time:          Decimal,
+}
+
+impl fmt::Display for KLineItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "KLineItem{{{:6},{},{},{:3},{},{}}}",
+            self.code, self.trade_date, self.trade_time, self.period, self.volume, self.num_t
+        )
+    }
 }
 
 impl KLineItem {

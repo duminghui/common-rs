@@ -5,9 +5,10 @@ use std::time::{Duration, Instant};
 use sqlx::mysql::MySqlArguments;
 use sqlx::MySqlPool;
 use thiserror::Error;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SqlEntity {
     key:  String,
     idx:  u16,
@@ -93,6 +94,7 @@ pub struct BatchExec {
     exec_threshold: u16,
     entity_idx:     u16,
     entity_map:     HashMap<String, SqlEntity>,
+    lock:           Arc<Mutex<()>>,
 }
 
 impl BatchExec {
@@ -102,6 +104,7 @@ impl BatchExec {
             exec_threshold,
             entity_idx: 0,
             entity_map: Default::default(),
+            lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -117,13 +120,20 @@ impl BatchExec {
         self.entity_map.insert(entity.key.clone(), entity);
     }
 
-    #[inline]
-    fn sorted_entity_mut_vec(&mut self) -> Vec<&mut SqlEntity> {
+    async fn sorted_entity_mut_vec(&mut self) -> Vec<SqlEntity> {
+        let lock = self.lock.clone();
+        let lock = lock.lock().await;
         let mut entity_vec = self
             .entity_map
-            .values_mut()
-            .collect::<Vec<&mut SqlEntity>>();
+            .values()
+            .cloned()
+            .collect::<Vec<SqlEntity>>();
         entity_vec.sort_by(|a, b| a.idx.cmp(&b.idx));
+
+        self.entity_idx = 0;
+        self.entity_map.clear();
+
+        drop(lock);
         entity_vec
     }
 
@@ -142,30 +152,30 @@ impl BatchExec {
 
         let pool = &*self.pool.clone();
 
-        let sql_entity_vec = self.sorted_entity_mut_vec();
+        let sql_entity_vec = self.sorted_entity_mut_vec().await;
 
         let mut transaction = pool.begin().await?;
 
         let mut rows_affected = 0;
         for SqlEntity { sql, args, .. } in sql_entity_vec {
-            let args = args.take().unwrap();
-            let result = sqlx::query_with(sql, args).execute(&mut transaction).await;
-            match result {
-                Ok(result) => {
-                    rows_affected += result.rows_affected();
-                },
-                Err(err) => {
-                    return Err(BatchExecError::Query {
-                        sql: sql.to_owned(),
-                        err,
-                    });
-                },
+            if let Some(args) = args {
+                let result = sqlx::query_with(&sql, args).execute(&mut transaction).await;
+                match result {
+                    Ok(result) => {
+                        rows_affected += result.rows_affected();
+                    },
+                    Err(err) => {
+                        return Err(BatchExecError::Query {
+                            sql: sql.to_owned(),
+                            err,
+                        });
+                    },
+                }
+            } else {
+                println!("## args is none: {}", sql);
             }
         }
         transaction.commit().await?;
-
-        self.entity_idx = 0;
-        self.entity_map.clear();
 
         exec_info.is_exec = true;
         exec_info.entity_count = entity_len;
@@ -267,10 +277,10 @@ mod botch_exec_tests {
         a.take();
     }
 
-    #[test]
-    fn test_sorted_entity_vec() {
+    #[tokio::test]
+    async fn test_sorted_entity_vec() {
         let mut be = batch_exec();
-        let entity_vec = be.sorted_entity_mut_vec();
+        let entity_vec = be.sorted_entity_mut_vec().await;
         println!("# len {:?}", entity_vec.len());
         for e in entity_vec {
             println!("## {:?}, {}", e.key, e);
