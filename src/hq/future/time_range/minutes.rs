@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use crate::hq::future::trade_day;
 
@@ -149,12 +149,18 @@ impl Minutes {
         }
     }
 
+    // fn time_idx_hmap(times_vec: &[(NaiveTime, NaiveTime)]) {
+    //     let (time1, time2) = unsafe { times_vec.get_unchecked(0) };
+    // }
+
     pub fn next_close_time(
         &self,
         dt: &NaiveDateTime,
         non_night_first_close: &NaiveTime,
     ) -> NaiveDateTime {
-        let stragegy = self.minute_strategy_hmap.get(&dt.time()).unwrap();
+        let time = dt.time();
+        let time = NaiveTime::from_hms_opt(time.hour(), time.minute(), 0).unwrap();
+        let stragegy = self.minute_strategy_hmap.get(&time).unwrap();
         let day = dt.date();
         let trade_day = trade_day::trade_day(&day);
         if stragegy.is_use_next_td_first_close {
