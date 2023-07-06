@@ -5,6 +5,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 use itertools::Itertools;
 use sqlx::MySqlPool;
 
+use self::minutes::Minutes;
 use super::trade_day;
 use crate::mysqlx::types::VecType;
 
@@ -60,13 +61,11 @@ async fn time_range_list_from_db(
     Ok(items)
 }
 
-static TX_TIME_RANGE_DATA: OnceLock<HashMap<String, Arc<TimeRange>>> = OnceLock::new();
-
 // 夜盘结束点,收盘点的特殊时间
 #[derive(Debug)]
 pub(crate) struct CloseTimeInfo {
-    next:                 NaiveTime, // 15:00:00|15:15:00: 下一分钟在夜盘, 其他:正常加一分钟
-    non_night_next:       NaiveTime, // 15:00:00|15:15:00: 下一分钟不在夜盘
+    next:                 NaiveTime, // 有夜盘情况下的开盘时间
+    non_night_next:       NaiveTime, // 无夜盘情况下的开盘时间
     is_night_close_2300:  bool,      // 是否夜盘结束点: 23:00
     is_night_close_other: bool,      // 是否夜盘结束点: 1:00 2:30
     is_day_close:         bool,      // 是否收市时间点
@@ -74,11 +73,13 @@ pub(crate) struct CloseTimeInfo {
 
 #[derive(Debug)]
 pub struct TimeRange {
-    times_vec:           Vec<(NaiveTime, NaiveTime)>, // Vec<(open_time,close_time)>
-    has_night:           bool,
-    night_open_time:     NaiveTime,
-    non_night_open_time: NaiveTime,
-    close_time_info_map: HashMap<NaiveTime, CloseTimeInfo>,
+    times_vec:                  Vec<(NaiveTime, NaiveTime)>, // Vec<(open_time,close_time)>
+    has_night:                  bool,
+    night_open_time:            NaiveTime,
+    non_night_open_time:        NaiveTime,
+    close_time_info_map:        HashMap<NaiveTime, CloseTimeInfo>,
+    non_night_first_close_time: NaiveTime,
+    minutes:                    Minutes,
 }
 
 impl TimeRange {
@@ -209,105 +210,117 @@ impl TimeRange {
         self.close_time_info_map.contains_key(time)
     }
 
-    // 当前时间所在的交易时间段的收盘时间
     pub fn next_close_time(&self, dt: &NaiveDateTime) -> Result<NaiveDateTime, String> {
-        let day = dt.date();
-        let trade_day = trade_day::trade_day(&day);
-
-        let time = dt.time();
-
-        let time_235959 = NaiveTime::from_hms_milli_opt(23, 59, 59, 1999).unwrap();
-        let time_000000 = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
-
-        let len = self.times_vec.len();
-
-        let mut result_dt = NaiveDateTime::default();
-
-        for (idx, (_, close_time)) in self.times_vec.iter().enumerate() {
-            let idx = (idx + 1) % len;
-            let (_, next_close_time) = unsafe { self.times_vec.get_unchecked(idx) };
-
-            // let close_time_info = self.close_time_info_map.get(close_time).unwrap();
-            let next_close_time_info = self.close_time_info_map.get(next_close_time).unwrap();
-
-            let close_time = *close_time;
-            let next_close_time = *next_close_time;
-
-            if time > close_time && time <= next_close_time {
-                // 10:15~11:30 11:30~15:00 11:30~15:15 15:00~23:00 01:00~10:15 02:30~10:15
-                if !trade_day.is_trade_day {
-                    // 非交易日: 下一交易日白盘的第一个结束时间
-                    let idx = if self.has_night { 1 } else { 0 };
-                    let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
-                    result_dt = trade_day.td_next.and_time(*close_time);
-                    break;
-                } else if next_close_time_info.is_night_close_2300 {
-                    if trade_day.has_night {
-                        result_dt = day.and_time(next_close_time);
-                        break;
-                    } else {
-                        let (_, close_time) = unsafe { self.times_vec.get_unchecked(1) };
-                        result_dt = trade_day.td_next.and_time(*close_time);
-                        break;
-                    }
-                } else {
-                    result_dt = day.and_time(next_close_time);
-                    break;
-                }
-            } else if close_time > next_close_time {
-                // 15:00~10:15, 15:00~11:30, 15:15~11:30, 23:00~10:15, 15:00~01:00, 15:00~02:30
-                // 按跨天处理
-                if (time > close_time && time < time_235959)
-                    || (time >= time_000000 && time <= next_close_time)
-                {
-                    if time > close_time && time < time_235959 {
-                        if next_close_time_info.is_night_close_other {
-                            if trade_day.has_night {
-                                result_dt = day.succ_opt().unwrap().and_time(next_close_time);
-                                break;
-                            } else {
-                                let idx = if self.has_night { 1 } else { 0 };
-                                let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
-                                result_dt = trade_day.td_next.and_time(*close_time);
-                                break;
-                            }
-                        } else {
-                            result_dt = trade_day.td_next.and_time(next_close_time);
-                            break;
-                        }
-                    } else if self.has_night {
-                        // 判断前一天是否有夜盘
-                        let prev_day = day.pred_opt().unwrap();
-                        let prev_day_info = trade_day::trade_day(&prev_day);
-
-                        if prev_day_info.has_night {
-                            result_dt = day.and_time(next_close_time);
-                            break;
-                        } else {
-                            let idx = if self.has_night { 1 } else { 0 };
-                            let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
-                            result_dt = prev_day_info.td_next.and_time(*close_time);
-                            break;
-                        }
-                    } else if trade_day.is_trade_day {
-                        result_dt = day.and_time(next_close_time);
-                        break;
-                    } else {
-                        let idx = if self.has_night { 1 } else { 0 };
-                        let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
-                        result_dt = trade_day.td_next.and_time(*close_time);
-                        break;
-                    }
-                }
-            }
-        }
-
-        if result_dt == Default::default() {
-            Err("default time".to_string())
+        let next_close_time = self
+            .minutes
+            .next_close_time(dt, &self.non_night_first_close_time);
+        let dt_default = NaiveDateTime::default();
+        if next_close_time == dt_default {
+            Err(format!("get a default time:{} ", dt_default))
         } else {
-            Ok(result_dt)
+            Ok(next_close_time)
         }
     }
+
+    // 当前时间所在的交易时间段的收盘时间
+    // pub fn next_close_time(&self, dt: &NaiveDateTime) -> Result<NaiveDateTime, String> {
+    //     let day = dt.date();
+    //     let trade_day = trade_day::trade_day(&day);
+
+    //     let time = dt.time();
+
+    //     let time_235959 = NaiveTime::from_hms_milli_opt(23, 59, 59, 1999).unwrap();
+    //     let time_000000 = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+
+    //     let len = self.times_vec.len();
+
+    //     let mut result_dt = NaiveDateTime::default();
+
+    //     for (idx, (_, close_time)) in self.times_vec.iter().enumerate() {
+    //         let idx = (idx + 1) % len;
+    //         let (_, next_close_time) = unsafe { self.times_vec.get_unchecked(idx) };
+
+    //         // let close_time_info = self.close_time_info_map.get(close_time).unwrap();
+    //         let next_close_time_info = self.close_time_info_map.get(next_close_time).unwrap();
+
+    //         let close_time = *close_time;
+    //         let next_close_time = *next_close_time;
+
+    //         if time > close_time && time <= next_close_time {
+    //             // 10:15~11:30 11:30~15:00 11:30~15:15 15:00~23:00 01:00~10:15 02:30~10:15
+    //             if !trade_day.is_trade_day {
+    //                 // 非交易日: 下一交易日白盘的第一个结束时间
+    //                 let idx = if self.has_night { 1 } else { 0 };
+    //                 let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
+    //                 result_dt = trade_day.td_next.and_time(*close_time);
+    //                 break;
+    //             } else if next_close_time_info.is_night_close_2300 {
+    //                 if trade_day.has_night {
+    //                     result_dt = day.and_time(next_close_time);
+    //                     break;
+    //                 } else {
+    //                     let (_, close_time) = unsafe { self.times_vec.get_unchecked(1) };
+    //                     result_dt = trade_day.td_next.and_time(*close_time);
+    //                     break;
+    //                 }
+    //             } else {
+    //                 result_dt = day.and_time(next_close_time);
+    //                 break;
+    //             }
+    //         } else if close_time > next_close_time {
+    //             // 15:00~10:15, 15:00~11:30, 15:15~11:30, 23:00~10:15, 15:00~01:00, 15:00~02:30
+    //             // 按跨天处理
+    //             if (time > close_time && time < time_235959)
+    //                 || (time >= time_000000 && time <= next_close_time)
+    //             {
+    //                 if time > close_time && time < time_235959 {
+    //                     if next_close_time_info.is_night_close_other {
+    //                         if trade_day.has_night {
+    //                             result_dt = day.succ_opt().unwrap().and_time(next_close_time);
+    //                             break;
+    //                         } else {
+    //                             let idx = if self.has_night { 1 } else { 0 };
+    //                             let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
+    //                             result_dt = trade_day.td_next.and_time(*close_time);
+    //                             break;
+    //                         }
+    //                     } else {
+    //                         result_dt = trade_day.td_next.and_time(next_close_time);
+    //                         break;
+    //                     }
+    //                 } else if self.has_night {
+    //                     // 判断前一天是否有夜盘
+    //                     let prev_day = day.pred_opt().unwrap();
+    //                     let prev_day_info = trade_day::trade_day(&prev_day);
+
+    //                     if prev_day_info.has_night {
+    //                         result_dt = day.and_time(next_close_time);
+    //                         break;
+    //                     } else {
+    //                         let idx = if self.has_night { 1 } else { 0 };
+    //                         let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
+    //                         result_dt = prev_day_info.td_next.and_time(*close_time);
+    //                         break;
+    //                     }
+    //                 } else if trade_day.is_trade_day {
+    //                     result_dt = day.and_time(next_close_time);
+    //                     break;
+    //                 } else {
+    //                     let idx = if self.has_night { 1 } else { 0 };
+    //                     let (_, close_time) = unsafe { self.times_vec.get_unchecked(idx) };
+    //                     result_dt = trade_day.td_next.and_time(*close_time);
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     if result_dt == Default::default() {
+    //         Err("default time".to_string())
+    //     } else {
+    //         Ok(result_dt)
+    //     }
+    // }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -321,6 +334,8 @@ pub enum TimeRangeError {
     #[error("breed err: {0}")]
     BreedError(String),
 }
+
+static TX_TIME_RANGE_DATA: OnceLock<HashMap<String, Arc<TimeRange>>> = OnceLock::new();
 
 pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
     if TX_TIME_RANGE_DATA.get().is_some() {
@@ -400,12 +415,21 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                 );
             }
 
+            let non_night_first_close_time_idx = if has_night { 1 } else { 0 };
+
+            let non_night_first_close_time =
+                *unsafe { close_times.get_unchecked(non_night_first_close_time_idx) };
+
+            let minutes = Minutes::new_from_times_vec(&times_vec);
+
             Arc::new(TimeRange {
                 times_vec,
                 has_night,
                 night_open_time,
                 non_night_open_time,
                 close_time_info_map,
+                non_night_first_close_time,
+                minutes,
             })
         });
 
@@ -449,7 +473,7 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+    use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
 
     use super::{init_from_db, time_range_list_from_db};
     use crate::hq::future::time_range::{day_all_minutes, time_range_by_breed};
@@ -458,12 +482,31 @@ mod tests {
 
     #[test]
     fn test_chrono() {
-        let time = NaiveTime::from_hms_milli_opt(23, 59, 59, 1999).unwrap();
+        let time = NaiveTime::from_hms_milli_opt(23, 59, 59, 999).unwrap();
         println!("{:?}", time);
+        let time1 = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
+        println!("{:?} {}", time1, time1 < time);
         let time1 = NaiveTime::from_hms_milli_opt(23, 59, 59, 1000).unwrap();
         println!("{:?} {}", time1, time1 < time);
-        let time1 = NaiveTime::from_hms_milli_opt(0, 0, 0, 1000).unwrap();
+        let time1 = NaiveTime::from_hms_milli_opt(0, 0, 0, 0).unwrap();
         println!("{:?} {}", time1, time1 < time);
+    }
+
+    #[test]
+    fn test_chrono_2() {
+        let mut time = NaiveTime::from_hms_opt(23, 58, 0).unwrap();
+        time += Duration::minutes(1);
+        println!("{time}");
+        time += Duration::minutes(1);
+        println!("{time}");
+        time += Duration::minutes(1);
+        println!("{time}");
+        time += Duration::minutes(1);
+        println!("{time}");
+        time += Duration::minutes(1);
+        println!("{time}");
+        time += Duration::minutes(1);
+        println!("{time}");
     }
 
     #[tokio::test]

@@ -156,6 +156,9 @@ impl BatchExec {
 
         let mut transaction = pool.begin().await?;
 
+        let lock = self.lock.clone();
+        let lock = lock.lock().await;
+
         let mut rows_affected = 0;
         for SqlEntity { sql, args, .. } in sql_entity_vec {
             let result = sqlx::query_with(&sql, args)
@@ -174,6 +177,7 @@ impl BatchExec {
             }
         }
         transaction.commit().await?;
+        drop(lock);
 
         exec_info.is_exec = true;
         exec_info.entity_count = entity_len;
