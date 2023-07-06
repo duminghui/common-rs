@@ -13,7 +13,7 @@ pub struct SqlEntity {
     key:  String,
     idx:  u16,
     sql:  String,
-    args: Option<MySqlArguments>, /* args在执行写入数据库时会消耗掉, 使用Option的功能来进行处理. */
+    args: MySqlArguments,
 }
 
 impl std::fmt::Display for SqlEntity {
@@ -25,10 +25,10 @@ impl std::fmt::Display for SqlEntity {
 impl SqlEntity {
     pub fn new(key: &str, sql: &str, args: MySqlArguments) -> SqlEntity {
         SqlEntity {
-            key:  key.to_owned(),
-            idx:  0,
-            sql:  sql.to_owned(),
-            args: Some(args),
+            key: key.to_owned(),
+            idx: 0,
+            sql: sql.to_owned(),
+            args,
         }
     }
 
@@ -120,7 +120,7 @@ impl BatchExec {
         self.entity_map.insert(entity.key.clone(), entity);
     }
 
-    async fn sorted_entity_mut_vec(&mut self) -> Vec<SqlEntity> {
+    async fn sorted_entity_vec(&mut self) -> Vec<SqlEntity> {
         let lock = self.lock.clone();
         let lock = lock.lock().await;
         let mut entity_vec = self
@@ -152,29 +152,25 @@ impl BatchExec {
 
         let pool = &*self.pool.clone();
 
-        let sql_entity_vec = self.sorted_entity_mut_vec().await;
+        let sql_entity_vec = self.sorted_entity_vec().await;
 
         let mut transaction = pool.begin().await?;
 
         let mut rows_affected = 0;
         for SqlEntity { sql, args, .. } in sql_entity_vec {
-            if let Some(args) = args {
-                let result = sqlx::query_with(&sql, args)
-                    .execute(&mut *transaction)
-                    .await;
-                match result {
-                    Ok(result) => {
-                        rows_affected += result.rows_affected();
-                    },
-                    Err(err) => {
-                        return Err(BatchExecError::Query {
-                            sql: sql.to_owned(),
-                            err,
-                        });
-                    },
-                }
-            } else {
-                println!("## args is none: {}", sql);
+            let result = sqlx::query_with(&sql, args)
+                .execute(&mut *transaction)
+                .await;
+            match result {
+                Ok(result) => {
+                    rows_affected += result.rows_affected();
+                },
+                Err(err) => {
+                    return Err(BatchExecError::Query {
+                        sql: sql.to_owned(),
+                        err,
+                    });
+                },
             }
         }
         transaction.commit().await?;
@@ -197,9 +193,9 @@ impl BatchExec {
 
     pub async fn execute_single(
         pool: Arc<MySqlPool>,
-        mut sql_entity: SqlEntity,
+        sql_entity: SqlEntity,
     ) -> std::result::Result<(), sqlx::Error> {
-        sqlx::query_with(&sql_entity.sql, sql_entity.args.take().unwrap())
+        sqlx::query_with(&sql_entity.sql, sql_entity.args)
             .execute(pool.as_ref())
             .await?;
         Ok(())
@@ -282,7 +278,7 @@ mod botch_exec_tests {
     #[tokio::test]
     async fn test_sorted_entity_vec() {
         let mut be = batch_exec();
-        let entity_vec = be.sorted_entity_mut_vec().await;
+        let entity_vec = be.sorted_entity_vec().await;
         println!("# len {:?}", entity_vec.len());
         for e in entity_vec {
             println!("## {:?}, {}", e.key, e);

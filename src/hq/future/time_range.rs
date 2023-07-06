@@ -427,6 +427,10 @@ pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRangeError
     Ok(time_range.clone())
 }
 
+pub fn time_range_qh_base() -> Arc<TimeRange> {
+    time_range_by_breed("QHbase").unwrap()
+}
+
 pub fn day_all_minutes(day: &NaiveDate) -> Vec<NaiveDateTime> {
     let mut minutes = Vec::new();
 

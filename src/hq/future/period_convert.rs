@@ -100,6 +100,10 @@ pub fn converter_by_breed(breed: &str) -> Result<Arc<Converter>, PeriodConvertEr
     Ok(converter)
 }
 
+pub fn converter_qh_base() -> Arc<Converter> {
+    converter_by_breed("QHbase").unwrap()
+}
+
 // impl Converter {
 //     pub fn convert_to_1m(
 //         breed: &str,
