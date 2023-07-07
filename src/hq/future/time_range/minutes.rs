@@ -18,6 +18,7 @@ pub struct MinuteStrategyInfo {
 #[derive(Debug, Default)]
 pub struct Minutes {
     minute_strategy_hmap: HashMap<NaiveTime, Arc<MinuteStrategyInfo>>,
+    minute_idx_hmap:      HashMap<NaiveTime, (i16, i16)>,
 }
 
 impl Minutes {
@@ -144,14 +145,75 @@ impl Minutes {
                 dt_time += Duration::minutes(1);
             }
         }
+        let minute_idx_hmap = Minutes::minute_idx_hmap(times_vec);
         Minutes {
             minute_strategy_hmap,
+            minute_idx_hmap,
         }
     }
 
-    // fn time_idx_hmap(times_vec: &[(NaiveTime, NaiveTime)]) {
-    //     let (time1, time2) = unsafe { times_vec.get_unchecked(0) };
-    // }
+    fn minute_idx_hmap(times_vec: &[(NaiveTime, NaiveTime)]) -> HashMap<NaiveTime, (i16, i16)> {
+        let (_, close_time) = unsafe { times_vec.get_unchecked(0) };
+        let time_2300 = NaiveTime::from_hms_opt(23, 0, 0).unwrap();
+        let time_0100 = NaiveTime::from_hms_opt(1, 0, 0).unwrap();
+        let time_0230 = NaiveTime::from_hms_opt(2, 30, 0).unwrap();
+        let has_night = vec![time_2300, time_0100, time_0230].contains(close_time);
+
+        let day = NaiveDate::default();
+
+        let mut minute_idx_map = HashMap::new();
+
+        let mut night_idx_offset = 0;
+
+        let mut minute_idx = 0i16;
+
+        for (idx, (open_time, close_time)) in times_vec.iter().enumerate() {
+            let open_time = *open_time;
+            let close_time = *close_time;
+
+            let mut time = day.and_time(open_time);
+            let close_dt = if open_time > close_time {
+                day.succ_opt().unwrap().and_time(close_time)
+            } else {
+                day.and_time(close_time)
+            };
+
+            if has_night && idx == 0 {
+                night_idx_offset = (close_dt - time).num_minutes() as i16;
+            }
+
+            time += Duration::minutes(1);
+            while time <= close_dt {
+                minute_idx += 1;
+
+                let minute_idx_non_night = if has_night {
+                    if idx != 0 {
+                        minute_idx - night_idx_offset
+                    } else {
+                        0
+                    }
+                } else {
+                    minute_idx
+                };
+
+                minute_idx_map.insert(time.time(), (minute_idx, minute_idx_non_night));
+
+                time += Duration::minutes(1);
+            }
+        }
+
+        minute_idx_map
+    }
+
+    // time必须为转换后的1m时间
+    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> i16 {
+        let (idx_full, idx_non_night) = self.minute_idx_hmap.get(time).unwrap();
+        if day_has_night {
+            *idx_full
+        } else {
+            *idx_non_night
+        }
+    }
 
     pub fn next_close_time(
         &self,
@@ -199,6 +261,8 @@ impl Minutes {
 
 #[cfg(test)]
 mod test {
+    use chrono::NaiveDate;
+
     use super::Minutes;
     use crate::hq::future::time_range::{init_from_db, time_range_by_breed};
     use crate::mysqlx::MySqlPools;
@@ -213,6 +277,55 @@ mod test {
 
     #[tokio::test]
     async fn test_new_from_time_range_lr() {
-        print_new_from_time_range("LR").await;
+        print_new_from_time_range("ag").await;
+    }
+
+    async fn print_minute_idx_map(breed: &str, day: &NaiveDate) {
+        init_test_mysql_pools();
+        init_from_db(MySqlPools::pool()).await.unwrap();
+        let time_range = time_range_by_breed(breed).unwrap();
+        let minute_idx_map = Minutes::minute_idx_hmap(&time_range.times_vec);
+
+        let (minutes, _) = time_range.day_minutes(day);
+        for minute in minutes {
+            let (idx, idx2) = minute_idx_map.get(&minute.time()).unwrap();
+            println!("{} {} {}", minute, idx, idx2);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_lr() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("LR", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_ic() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("IC", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_tf() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("TF", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_sa() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("SA", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_zn() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("zn", &day).await;
+    }
+
+    #[tokio::test]
+    async fn test_print_minute_idx_ag() {
+        let day = NaiveDate::from_ymd_opt(2023, 7, 6).unwrap();
+        print_minute_idx_map("ag", &day).await;
     }
 }

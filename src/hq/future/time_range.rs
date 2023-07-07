@@ -83,6 +83,10 @@ pub struct TimeRange {
 }
 
 impl TimeRange {
+    pub fn has_night(&self) -> bool {
+        self.has_night
+    }
+
     pub fn times_vec(&self) -> &Vec<(NaiveTime, NaiveTime)> {
         &self.times_vec
     }
@@ -321,6 +325,10 @@ impl TimeRange {
     //         Ok(result_dt)
     //     }
     // }
+
+    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> i16 {
+        self.minutes.minute_idx(time, day_has_night)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

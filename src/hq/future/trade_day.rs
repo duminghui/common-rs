@@ -115,6 +115,16 @@ pub fn trade_day_by_time(dt: &NaiveDateTime) -> NaiveDate {
     }
 }
 
+/// 返回一个日期夜盘开始那天的交易日
+/// day是自然日期
+pub fn night_start_trade_day(day: &NaiveDate) -> &Arc<TradeDay> {
+    let trade_day_map = TRADE_DAY_HMAP.get().unwrap();
+    trade_day_map
+        .get(day)
+        .map(|v| trade_day_map.get(&v.td_prev).unwrap())
+        .unwrap()
+}
+
 /// 返回trade_day, 以目前的情况不会出现None
 pub fn trade_day(day: &NaiveDate) -> &Arc<TradeDay> {
     TRADE_DAY_HMAP.get().unwrap().get(day).unwrap()
@@ -126,7 +136,7 @@ mod tests {
     use chrono::NaiveDate;
 
     use super::init_from_db;
-    use crate::hq::future::trade_day::next_trade_day;
+    use crate::hq::future::trade_day::{next_trade_day, night_start_trade_day};
     use crate::mysqlx::MySqlPools;
     use crate::mysqlx_test_pool::init_test_mysql_pools;
 
@@ -163,5 +173,31 @@ mod tests {
                 break;
             }
         }
+    }
+
+    async fn print_night_start_trade_day(results: &[(&str, &str)]) {
+        init_test_mysql_pools();
+        init_from_db(MySqlPools::pool()).await.unwrap();
+
+        for (source, check) in results {
+            let day = NaiveDate::parse_from_str(source, "%Y-%m-%d").unwrap();
+            let trade_day_info = night_start_trade_day(&day);
+            let day = NaiveDate::parse_from_str(check, "%Y-%m-%d").unwrap();
+            println!("{} {} {}", source, check, trade_day_info.day == day);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_night_start_trade_day() {
+        let results = vec![
+            ("2023-06-21", "2023-06-20"),
+            ("2023-06-22", "2023-06-21"),
+            ("2023-06-23", "2023-06-21"),
+            ("2023-06-24", "2023-06-21"),
+            ("2023-06-25", "2023-06-21"),
+            ("2023-07-03", "2023-06-30"),
+            ("2023-07-07", "2023-07-06"),
+        ];
+        print_night_start_trade_day(&results).await;
     }
 }
