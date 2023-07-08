@@ -11,11 +11,12 @@ use tracing_subscriber::filter::Targets;
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, Registry};
+use tracing_subscriber::{fmt, Layer, Registry};
 
 pub struct LogConfig {
     max_files:         usize,
     level_filter:      LevelFilter,
+    console_enable:    bool,
     console_line_info: bool,
     console_target:    bool,
     file_line_info:    bool,
@@ -27,6 +28,7 @@ impl LogConfig {
     pub fn new(
         max_files: usize,
         level_filter: LevelFilter,
+        console_enable: bool,
         console_line_info: bool,
         console_target: bool,
         file_line_info: bool,
@@ -35,6 +37,7 @@ impl LogConfig {
         LogConfig {
             max_files,
             level_filter,
+            console_enable,
             console_line_info,
             console_target,
             file_line_info,
@@ -49,11 +52,7 @@ impl LogConfig {
 }
 
 // linux多线程的环境下, 获取UtcOffset会出错
-pub fn init_tracing(
-    directory: impl AsRef<Path>,
-    file_name: impl AsRef<Path>,
-    config: &LogConfig,
-) -> WorkerGuard {
+pub fn init_tracing(directory: impl AsRef<Path>, file_name: impl AsRef<Path>, config: &LogConfig) -> WorkerGuard {
     let time_format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
     // 这个在linux下时间部分会变成<unknown time>
     // let timer = LocalTime::new(time_format);
@@ -64,9 +63,15 @@ pub fn init_tracing(
 
     // // 控制台
     // let console_targets = Targets::new()
-    //     .with_target("sqlx::query", LevelFilter::OFF)
-    //     .with_target("mio::poll", LevelFilter::TRACE)
-    //     .not();
+    // .with_target("sqlx::query", LevelFilter::OFF)
+    // .with_target("mio::poll", LevelFilter::TRACE)
+    // .not();
+
+    let console_filter = if config.console_enable {
+        config.level_filter
+    } else {
+        LevelFilter::OFF
+    };
 
     let console_layer = fmt::layer()
         // .pretty()
@@ -74,8 +79,8 @@ pub fn init_tracing(
         .with_file(config.console_line_info)
         .with_line_number(config.console_line_info)
         .with_target(config.console_target)
-        .with_timer(timer.clone());
-    // .with_filter(console_targets);
+        .with_timer(timer.clone())
+        .with_filter(console_filter);
 
     // 文件
     // let timer = LocalTime::new(time_format);
