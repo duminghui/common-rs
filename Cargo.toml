@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = { version = "1.0.71", default-features = false, features = ["std"] }
 chrono = { version = "0.4.26", optional = true, default-features = false, features = ["std"] }
 futures = { version = "0.3.28", optional = true, default-features = false, features = ["std"] }
 indicatif = { version = "0.17.5", optional = true }

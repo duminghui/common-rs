@@ -115,7 +115,7 @@ impl fmt::Display for KLineItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "KLineItem{{{:6},{},{},{:3},{},{}}}",
+            "KLineItem{{{:6},{},{},{:3},{},num_t:{}}}",
             self.code, self.trade_date, self.trade_time, self.period, self.volume, self.num_t
         )
     }

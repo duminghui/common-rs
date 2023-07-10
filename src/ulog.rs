@@ -125,6 +125,7 @@ pub fn init_tracing(directory: impl AsRef<Path>, file_name: impl AsRef<Path>, co
         .with(console_layer)
         .with(file_appender_layer)
         .with(targets)
+        // ErrorLayer 可以让 color-eyre 获取到 span 的信息
         .with(ErrorLayer::default())
         .init();
 
