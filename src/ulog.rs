@@ -53,11 +53,16 @@ impl LogConfig {
 
 // linux多线程的环境下, 获取UtcOffset会出错
 pub fn init_tracing(directory: impl AsRef<Path>, file_name: impl AsRef<Path>, config: &LogConfig) -> WorkerGuard {
-    let time_format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+    // https://time-rs.github.io/book/api/format-description.html
+    let time_format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+
     // 这个在linux下时间部分会变成<unknown time>
     // let timer = LocalTime::new(time_format);
     // let utc_offset = UtcOffset::current_local_offset().expect("should get local offset!");
-    // 需要手工设置
+    // 需要设置 (还未测试)
+    // [build]
+    // rustflags = ["--cfg unsound_local_offset"]
+
     let utc_offset = UtcOffset::from_hms(8, 0, 0).unwrap();
     let timer = OffsetTime::new(utc_offset, time_format);
 
