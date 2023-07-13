@@ -49,7 +49,8 @@ impl Minutes {
         let time_0230 = NaiveTime::from_hms_opt(2, 30, 0).unwrap();
 
         let is_night_close_2300 = night_close_time == time_2300;
-        let is_ngiht_close_0100_0230 = night_close_time == time_0100 || night_close_time == time_0230;
+        let is_ngiht_close_0100_0230 =
+            night_close_time == time_0100 || night_close_time == time_0230;
 
         let day = NaiveDate::default();
 
@@ -214,7 +215,11 @@ impl Minutes {
         }
     }
 
-    pub fn next_close_time(&self, dt: &NaiveDateTime, non_night_first_close: &NaiveTime) -> NaiveDateTime {
+    pub fn next_close_time(
+        &self,
+        dt: &NaiveDateTime,
+        non_night_first_close: &NaiveTime,
+    ) -> NaiveDateTime {
         let time = dt.time();
         let time = NaiveTime::from_hms_opt(time.hour(), time.minute(), 0).unwrap();
         let stragegy = self.minute_strategy_hmap.get(&time).unwrap();
