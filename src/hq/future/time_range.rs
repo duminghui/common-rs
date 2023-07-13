@@ -41,23 +41,14 @@ struct TimeRangeDbItem {
 impl TimeRangeDbItem {
     pub fn times_vec_unique(&self) -> (Vec<NaiveTime>, Vec<NaiveTime>) {
         let open_times = self.open_times.iter().unique().copied().collect::<Vec<_>>();
-        let close_times = self
-            .close_times
-            .iter()
-            .unique()
-            .copied()
-            .collect::<Vec<_>>();
+        let close_times = self.close_times.iter().unique().copied().collect::<Vec<_>>();
         (open_times, close_times)
     }
 }
 
-async fn time_range_list_from_db(
-    pool: Arc<MySqlPool>,
-) -> Result<Vec<TimeRangeDbItem>, sqlx::Error> {
+async fn time_range_list_from_db(pool: Arc<MySqlPool>) -> Result<Vec<TimeRangeDbItem>, sqlx::Error> {
     let sql = "SELECT Breed,TDDay,closestart,closetimes,opentimes,openstart,closeend,ks1day,ks1span,ks1WD,ks1MD FROM basedata.tbl_time_range";
-    let items = sqlx::query_as::<_, TimeRangeDbItem>(sql)
-        .fetch_all(&*pool)
-        .await?;
+    let items = sqlx::query_as::<_, TimeRangeDbItem>(sql).fetch_all(&*pool).await?;
     Ok(items)
 }
 
@@ -215,9 +206,7 @@ impl TimeRange {
     }
 
     pub fn next_close_time(&self, dt: &NaiveDateTime) -> Result<NaiveDateTime, String> {
-        let next_close_time = self
-            .minutes
-            .next_close_time(dt, &self.non_night_first_close_time);
+        let next_close_time = self.minutes.next_close_time(dt, &self.non_night_first_close_time);
         let dt_default = NaiveDateTime::default();
         if next_close_time == dt_default {
             Err(format!("get a default time:{} ", dt_default))
@@ -361,8 +350,7 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
         let open_times_str = item.open_times.iter().join(",");
         let close_times_str = item.close_times.iter().join(",");
         let key = format!("{}-{}", open_times_str, close_times_str);
-        let has_night = unsafe { item.open_times.get_unchecked(0) }
-            != unsafe { item.open_times.get_unchecked(1) };
+        let has_night = unsafe { item.open_times.get_unchecked(0) } != unsafe { item.open_times.get_unchecked(1) };
 
         let time_range = tr_hmap.entry(key).or_insert_with(|| {
             let (open_times, close_times) = item.times_vec_unique();
@@ -387,8 +375,7 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                 times_vec.push((open_time, close_time));
 
                 let next_idx = (i + 1) % time_len;
-                let time_next =
-                    unsafe { *open_times.get_unchecked(next_idx) + Duration::minutes(1) };
+                let time_next = unsafe { *open_times.get_unchecked(next_idx) + Duration::minutes(1) };
                 let mut non_night_next = time_next;
                 let mut is_night_close_2300 = false;
                 let mut is_night_close_other = false;
@@ -402,8 +389,7 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                         }
                     }
                     if i == time_len - 1 {
-                        non_night_next =
-                            unsafe { *open_times.get_unchecked(1) + Duration::minutes(1) };
+                        non_night_next = unsafe { *open_times.get_unchecked(1) + Duration::minutes(1) };
                     }
                 }
 
@@ -425,8 +411,7 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
 
             let non_night_first_close_time_idx = if has_night { 1 } else { 0 };
 
-            let non_night_first_close_time =
-                *unsafe { close_times.get_unchecked(non_night_first_close_time_idx) };
+            let non_night_first_close_time = *unsafe { close_times.get_unchecked(non_night_first_close_time_idx) };
 
             let minutes = Minutes::new_from_times_vec(&times_vec);
 
@@ -453,9 +438,7 @@ pub(crate) fn hash_map<'a>() -> &'a HashMap<String, Arc<TimeRange>> {
 
 pub fn time_range_by_breed(breed: &str) -> Result<Arc<TimeRange>, TimeRangeError> {
     let hmap = TX_TIME_RANGE_DATA.get().unwrap();
-    let time_range = hmap
-        .get(breed)
-        .ok_or(TimeRangeError::BreedError(breed.to_string()))?;
+    let time_range = hmap.get(breed).ok_or(TimeRangeError::BreedError(breed.to_string()))?;
     Ok(time_range.clone())
 }
 
@@ -811,23 +794,14 @@ mod tests {
                 let close_time = *close_time;
                 let next_close_time = *next_close_time;
 
-                let key = format!(
-                    "{}~{}",
-                    close_time.format("%H:%M"),
-                    next_close_time.format("%H:%M")
-                );
+                let key = format!("{}~{}", close_time.format("%H:%M"), next_close_time.format("%H:%M"));
 
                 if close_time < next_close_time {
                     map1.insert(key, 1);
                 } else {
                     map2.insert(key, 1);
                 }
-                println!(
-                    "{} {} {}",
-                    close_time,
-                    next_close_time,
-                    close_time > next_close_time
-                );
+                println!("{} {} {}", close_time, next_close_time, close_time > next_close_time);
             }
         }
         println!("{:?}", map1.keys());
@@ -1266,6 +1240,8 @@ mod tests {
             ("2023-07-03 10:16:00", "2023-07-03 11:30:00"),
             ("2023-07-03 11:31:00", "2023-07-03 15:00:00"),
             ("2023-07-03 12:31:00", "2023-07-03 15:00:00"),
+            ("2023-07-03 15:00:00", "2023-07-04 02:30:00"),
+            ("2023-07-03 15:00:01", "2023-07-04 02:30:00"),
             ("2023-07-03 15:31:00", "2023-07-04 02:30:00"),
         ];
         test_next_close_time("ag", results).await;
