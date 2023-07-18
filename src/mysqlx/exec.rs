@@ -26,9 +26,9 @@ impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Rows affected:{:6} [{:>12?}]",
+            "[{:>12?}] Rows affected:{:6}",
+            self.elapsed,
             HumanCount(self.rows_affected),
-            self.elapsed
         )
     }
 }

@@ -4,10 +4,9 @@ use std::path::Path;
 use rolling_file::{BasicRollingFileAppender, RollingConditionBasic};
 use time::macros::format_description;
 use time::UtcOffset;
-use tracing::metadata::LevelFilter;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_error::ErrorLayer;
-use tracing_subscriber::filter::Targets;
+use tracing_subscriber::filter::{LevelFilter, Targets};
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -52,9 +51,14 @@ impl LogConfig {
 }
 
 // linux多线程的环境下, 获取UtcOffset会出错
-pub fn init_tracing(directory: impl AsRef<Path>, file_name: impl AsRef<Path>, config: &LogConfig) -> WorkerGuard {
+pub fn init_tracing(
+    directory: impl AsRef<Path>,
+    file_name: impl AsRef<Path>,
+    config: &LogConfig,
+) -> WorkerGuard {
     // https://time-rs.github.io/book/api/format-description.html
-    let time_format = format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+    let time_format =
+        format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
 
     // 这个在linux下时间部分会变成<unknown time>
     // let timer = LocalTime::new(time_format);
