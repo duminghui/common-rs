@@ -22,6 +22,7 @@ use std::cmp::max;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures_util::{StreamExt, TryStreamExt};
 use itertools::Itertools;
 use sqlx::MySqlPool;
 
@@ -33,6 +34,18 @@ pub fn table_name(db_name: &str, tbl_name: &str) -> String {
     } else {
         format!("`{}`.`{}`", db_name, tbl_name)
     }
+}
+
+pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<String>, sqlx::Error> {
+    let sql = format!("SHOW TABLES FROM {}", db_name);
+
+    let tables = sqlx::query_as::<_, (String,)>(&sql)
+        .fetch(&*pool)
+        .map(|v| v.map(|v| v.0))
+        .try_collect::<Vec<String>>()
+        .await?;
+
+    Ok(tables)
 }
 
 struct TableField {
@@ -62,6 +75,7 @@ impl std::fmt::Display for TableField {
 pub struct TableCreator {
     table_name:   String,
     field_vec:    Vec<TableField>,
+    indexs:       Vec<String>,
     primary_keys: String,
 }
 
@@ -71,7 +85,10 @@ impl std::fmt::Display for TableCreator {
         for field in self.field_vec.iter() {
             writeln!(f, "  {}", field)?;
         }
-        writeln!(f, "  PRIMARY KEY ({})", self.primary_keys)?;
+        for index in self.indexs.iter() {
+            writeln!(f, "  {}", index)?;
+        }
+        writeln!(f, "  {}", self.primary_keys)?;
         writeln!(f, ") ENGINE=InnoDB")
     }
 }
@@ -106,7 +123,10 @@ impl std::fmt::Debug for TableCreator {
                 field.name, field.r#type, null_str,default_str, field.comment
             )?;
         }
-        writeln!(f, "  PRIMARY KEY ({})", self.primary_keys)?;
+        for index in self.indexs.iter() {
+            writeln!(f, "  {}", index)?;
+        }
+        writeln!(f, "  {}", self.primary_keys)?;
         writeln!(f, ") ENGINE=InnoDB")
     }
 }
@@ -117,6 +137,7 @@ impl TableCreator {
         TableCreator {
             table_name,
             field_vec: Vec::new(),
+            indexs: Vec::new(),
             primary_keys: String::new(),
         }
     }
@@ -139,8 +160,16 @@ impl TableCreator {
         self
     }
 
-    pub fn primary_keys(mut self, keys: &[&str]) -> Self {
-        self.primary_keys = keys.iter().map(|v| format!("`{}`", v)).join(",");
+    pub fn add_index(mut self, index_name: &str, fields: &[&str]) -> Self {
+        let fields_str = fields.iter().map(|v| format!("`{}`", v)).join(",");
+        self.indexs
+            .push(format!("INDEX {} ({}),", index_name, fields_str));
+        self
+    }
+
+    pub fn primary_keys(mut self, fields: &[&str]) -> Self {
+        let fields_str = fields.iter().map(|v| format!("`{}`", v)).join(",");
+        self.primary_keys = format!("PRIMARY KEY ({})", fields_str);
         self
     }
 
@@ -201,6 +230,7 @@ mod tests {
             .add_field("f4", "char(8)", true, "", "字段4")
             .add_field("f5", "char(8)", true, "", "字段5")
             .add_field("f1", "datetime", true, "", "更新时间")
+            .add_index("index_f3", &["f5"])
             .primary_keys(&["f22222", "f3"])
     }
 

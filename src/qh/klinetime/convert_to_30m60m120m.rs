@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
-use futures::TryStreamExt;
+use futures_util::TryStreamExt;
 use sqlx::{FromRow, MySqlPool};
 
 use super::{KLineTimeError, TimeRangeDateTime};

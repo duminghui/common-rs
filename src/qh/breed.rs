@@ -1,7 +1,7 @@
 use std::ops::RangeInclusive;
 use std::sync::OnceLock;
 
-use futures::TryStreamExt;
+use futures_util::TryStreamExt;
 use sqlx::MySqlPool;
 
 const A_Z_LOWER_RANGE: RangeInclusive<char> = 'a'..='z';

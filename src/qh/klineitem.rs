@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use chrono::NaiveDateTime;
-use futures::{StreamExt, TryStreamExt};
+use futures_util::{StreamExt, TryStreamExt};
 use rust_decimal::Decimal;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Arguments, MySqlPool};

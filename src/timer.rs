@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use futures::Future;
+use futures_util::Future;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::SendError;
 use tokio::time::Instant;
