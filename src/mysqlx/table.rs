@@ -24,7 +24,8 @@ use std::time::Duration;
 
 use futures_util::{StreamExt, TryStreamExt};
 use itertools::Itertools;
-use sqlx::MySqlPool;
+use sqlx::mysql::MySqlArguments;
+use sqlx::{Arguments, MySqlPool};
 
 use super::exec::{exec_sql, ExecError};
 
@@ -46,6 +47,25 @@ pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<Stri
         .await?;
 
     Ok(tables)
+}
+
+pub async fn column_index_exist(
+    pool: Arc<MySqlPool>,
+    db_name: &str,
+    tbl_name: &str,
+    column_name: &str,
+) -> Result<bool, sqlx::Error> {
+    let sql = "SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema=? AND table_name=? AND column_name=?";
+
+    let mut args = MySqlArguments::default();
+    args.add(db_name);
+    args.add(tbl_name);
+    args.add(column_name);
+
+    let count = sqlx::query_as_with::<_, (i32,), _>(sql, args)
+        .fetch_one(&*pool)
+        .await?;
+    Ok(count.0 > 0)
 }
 
 struct TableField {
