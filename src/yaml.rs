@@ -1,9 +1,9 @@
 use std::path::Path;
 use std::{fs, io};
 
-use log::debug;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+use tracing::debug;
 
 #[derive(Debug, Error)]
 pub enum YamlParseError {

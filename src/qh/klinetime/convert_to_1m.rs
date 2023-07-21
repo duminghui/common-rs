@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
-use log::error;
+use tracing::error;
 
 use super::tx_time_range::TxTimeRangeData;
 use super::KLineTimeError;
