@@ -27,7 +27,7 @@ use itertools::Itertools;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Arguments, MySqlPool};
 
-use super::exec::{exec_sql, ExecError};
+use super::exec::{exec_sql, ExecError, ExecInfo};
 
 pub fn table_name(db_name: &str, tbl_name: &str) -> String {
     if db_name.is_empty() {
@@ -66,6 +66,38 @@ pub async fn column_index_exist(
         .fetch_one(&*pool)
         .await?;
     Ok(count.0 > 0)
+}
+
+pub async fn column_idx_add(
+    pool: Arc<MySqlPool>,
+    db_name: &str,
+    tbl_name: &str,
+    column_name: &str,
+    index_name: &str,
+) -> Result<ExecInfo, ExecError> {
+    let tbl_name = table_name(db_name, tbl_name);
+    let sql = format!(
+        "ALTER TABLE {} ADD INDEX `{}`(`{}`);",
+        tbl_name, index_name, column_name
+    );
+    exec_sql(pool, &sql).await
+}
+
+pub async fn column_index_not_exist_add(
+    pool: Arc<MySqlPool>,
+    db_name: &str,
+    tbl_name: &str,
+    column_name: &str,
+    index_name: &str,
+) -> Result<ExecInfo, ExecError> {
+    if !column_index_exist(pool.clone(), db_name, tbl_name, column_name)
+        .await
+        .map_err(|e| ExecError::Sqlx(String::new(), e))?
+    {
+        column_idx_add(pool, db_name, tbl_name, column_name, index_name).await
+    } else {
+        Ok(ExecInfo::default())
+    }
 }
 
 struct TableField {

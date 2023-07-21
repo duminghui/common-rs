@@ -16,7 +16,7 @@ impl From<ExecError> for String {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ExecInfo {
     rows_affected:      u64,
     pub(crate) elapsed: Duration,
