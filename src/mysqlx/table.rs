@@ -54,7 +54,7 @@ pub async fn column_index_exist(
     db_name: &str,
     tbl_name: &str,
     column_name: &str,
-) -> Result<bool, sqlx::Error> {
+) -> Result<bool, ExecError> {
     let sql = "SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema=? AND table_name=? AND column_name=?";
 
     let mut args = MySqlArguments::default();
@@ -64,7 +64,8 @@ pub async fn column_index_exist(
 
     let count = sqlx::query_as_with::<_, (i32,), _>(sql, args)
         .fetch_one(&*pool)
-        .await?;
+        .await
+        .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
     Ok(count.0 > 0)
 }
 
@@ -72,32 +73,35 @@ pub async fn column_idx_add(
     pool: Arc<MySqlPool>,
     db_name: &str,
     tbl_name: &str,
-    column_name: &str,
-    index_name: &str,
+    indexs: &[(&str, &str)],
 ) -> Result<ExecInfo, ExecError> {
+    if indexs.is_empty() {
+        return Ok(ExecInfo::default());
+    }
+
+    let indexs_str = indexs
+        .iter()
+        .map(|(index_name, column_name)| format!("ADD INDEX `{}`(`{}`)", index_name, column_name))
+        .join(",");
+
     let tbl_name = table_name(db_name, tbl_name);
-    let sql = format!(
-        "ALTER TABLE {} ADD INDEX `{}`(`{}`);",
-        tbl_name, index_name, column_name
-    );
+    let sql = format!("ALTER TABLE {} {}", tbl_name, indexs_str);
     exec_sql(pool, &sql).await
 }
 
-pub async fn column_index_not_exist_add(
+pub async fn column_indexs_not_exist_add(
     pool: Arc<MySqlPool>,
     db_name: &str,
     tbl_name: &str,
-    column_name: &str,
-    index_name: &str,
+    indexs: &[(&str, &str)],
 ) -> Result<ExecInfo, ExecError> {
-    if !column_index_exist(pool.clone(), db_name, tbl_name, column_name)
-        .await
-        .map_err(|e| ExecError::Sqlx(String::new(), e))?
-    {
-        column_idx_add(pool, db_name, tbl_name, column_name, index_name).await
-    } else {
-        Ok(ExecInfo::default())
+    let mut new_indexs = Vec::new();
+    for (idx_name, column_name) in indexs.iter() {
+        if !column_index_exist(pool.clone(), db_name, tbl_name, column_name).await? {
+            new_indexs.push((*idx_name, *column_name));
+        }
     }
+    column_idx_add(pool, db_name, tbl_name, &new_indexs).await
 }
 
 struct TableField {

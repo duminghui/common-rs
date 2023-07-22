@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use indicatif::HumanCount;
+use sqlx::mysql::MySqlArguments;
 use sqlx::{Executor, MySqlPool};
 
 #[derive(thiserror::Error, Debug)]
@@ -41,6 +42,22 @@ pub async fn exec_sql<'a>(pool: Arc<MySqlPool>, sql: &str) -> Result<ExecInfo, E
         .await
         .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
 
+    Ok(ExecInfo {
+        rows_affected: r.rows_affected(),
+        elapsed:       start.elapsed(),
+    })
+}
+
+pub async fn exec_sql_args(
+    pool: Arc<MySqlPool>,
+    sql: &str,
+    args: MySqlArguments,
+) -> Result<ExecInfo, ExecError> {
+    let start = Instant::now();
+    let r = sqlx::query_with(sql, args)
+        .execute(&*pool)
+        .await
+        .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
     Ok(ExecInfo {
         rows_affected: r.rows_affected(),
         elapsed:       start.elapsed(),
