@@ -49,6 +49,7 @@ pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<Stri
     Ok(tables)
 }
 
+// TODO 待优化
 pub async fn column_index_exist(
     pool: Arc<MySqlPool>,
     db_name: &str,
@@ -247,7 +248,7 @@ pub struct TableExecInfo {
 
 impl std::fmt::Display for TableExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} [{:?}]", self.table_name, self.elapsed)
+        write!(f, "[{:>9.3?}] {}", self.elapsed, self.table_name)
     }
 }
 

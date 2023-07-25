@@ -19,7 +19,7 @@ impl From<ExecError> for String {
 
 #[derive(Debug, Default)]
 pub struct ExecInfo {
-    rows_affected:      u64,
+    pub rows_affected:  u64,
     pub(crate) elapsed: Duration,
 }
 
@@ -27,7 +27,7 @@ impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{:>12?}] Rows affected:{:6}",
+            "[{:>9.3?}] Rows affected:{:6}",
             self.elapsed,
             HumanCount(self.rows_affected),
         )

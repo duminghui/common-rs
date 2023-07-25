@@ -61,7 +61,7 @@ impl std::fmt::Display for BatchExecInfo {
         if self.is_exec {
             write!(
                 f,
-                "Rows affected:{}/C:{}(T:{}) [{:?}]",
+                "Rows affected:{}/C:{}(T:{}) [{:>9.3?}]",
                 self.rows_affected, self.entity_count, self.exec_threshold, self.elapsed
             )
         } else {
