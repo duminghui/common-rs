@@ -19,8 +19,8 @@ impl From<ExecError> for String {
 
 #[derive(Debug, Default)]
 pub struct ExecInfo {
-    pub rows_affected:  u64,
-    pub(crate) elapsed: Duration,
+    pub rows_affected: u64,
+    pub elapsed:       Duration,
 }
 
 impl std::fmt::Display for ExecInfo {
