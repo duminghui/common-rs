@@ -50,31 +50,30 @@ pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<Stri
 }
 
 // TODO 待优化
-pub async fn column_index_exist(
+pub async fn table_index_columns(
     pool: Arc<MySqlPool>,
     db_name: &str,
     tbl_name: &str,
-    column_name: &str,
-) -> Result<bool, ExecError> {
-    let sql = "SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema=? AND table_name=? AND column_name=?";
-
+) -> Result<Vec<String>, ExecError> {
+    let sql = "SELECT column_name FROM information_schema.statistics WHERE table_schema=? AND table_name=?" ;
     let mut args = MySqlArguments::default();
     args.add(db_name);
     args.add(tbl_name);
-    args.add(column_name);
 
-    let count = sqlx::query_as_with::<_, (i32,), _>(sql, args)
-        .fetch_one(&*pool)
+    let column_vec = sqlx::query_as_with::<_, (String,), _>(sql, args)
+        .fetch(&*pool)
+        .map_ok(|v| v.0)
+        .try_collect::<Vec<_>>()
         .await
         .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
-    Ok(count.0 > 0)
+    Ok(column_vec)
 }
 
 pub async fn column_idx_add(
     pool: Arc<MySqlPool>,
     db_name: &str,
     tbl_name: &str,
-    indexs: &[(&str, &str)],
+    indexs: &[(String, String)],
 ) -> Result<ExecInfo, ExecError> {
     if indexs.is_empty() {
         return Ok(ExecInfo::default());
@@ -94,14 +93,16 @@ pub async fn column_indexs_not_exist_add(
     pool: Arc<MySqlPool>,
     db_name: &str,
     tbl_name: &str,
-    indexs: &[(&str, &str)],
+    indexs: &[(String, String)],
 ) -> Result<ExecInfo, ExecError> {
-    let mut new_indexs = Vec::new();
-    for (idx_name, column_name) in indexs.iter() {
-        if !column_index_exist(pool.clone(), db_name, tbl_name, column_name).await? {
-            new_indexs.push((*idx_name, *column_name));
-        }
-    }
+    let tbl_index_columns = table_index_columns(pool.clone(), db_name, tbl_name).await?;
+
+    let new_indexs = indexs
+        .iter()
+        .filter(|(_, column)| !tbl_index_columns.contains(column))
+        .cloned()
+        .collect::<Vec<_>>();
+
     column_idx_add(pool, db_name, tbl_name, &new_indexs).await
 }
 
