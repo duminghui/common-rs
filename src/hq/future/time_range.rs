@@ -874,7 +874,7 @@ mod tests {
             if let Ok(close_time) = close_time {
                 println!("{:4} {}, {}", idx + 1, minute, close_time);
             } else {
-                println!("{} {}", minute, "error");
+                println!("{} error", minute);
             }
         }
     }

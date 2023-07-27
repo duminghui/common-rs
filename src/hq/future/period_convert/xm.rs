@@ -224,7 +224,7 @@ mod tests {
         for (open_time, close_time) in time_range.times_vec().iter() {
             println!("{} ~ {}", open_time, close_time);
         }
-        println!("");
+        println!();
     }
 
     async fn print_breed_period_info(breed: &str, period: &str, day: &NaiveDate) {
@@ -239,7 +239,7 @@ mod tests {
 
         let converterxm = by_breed(breed).unwrap();
 
-        let (minutes, trade_date) = time_range.day_minutes(&day);
+        let (minutes, trade_date) = time_range.day_minutes(day);
 
         let mut pre_period_time = None;
 
@@ -255,7 +255,7 @@ mod tests {
             }
             println!("{:3} {} {}", idx, minute, period_time);
             let entity = ptime_time_map.entry(period_time).or_insert_with_key(|k| {
-                ptime_vec.push(k.clone());
+                ptime_vec.push(*k);
                 Vec::new()
             });
             entity.push(minute);
@@ -278,7 +278,7 @@ mod tests {
                 end_time
             )
         }
-        println!("");
+        println!();
     }
 
     #[tokio::test]
