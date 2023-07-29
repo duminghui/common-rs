@@ -207,7 +207,11 @@ impl Minutes {
 
     // time必须为转换后的1m时间
     pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> i16 {
-        let (idx_full, idx_non_night) = self.minute_idx_hmap.get(time).unwrap();
+        let (idx_full, idx_non_night) = self
+            .minute_idx_hmap
+            .get(time)
+            .ok_or_else(|| format!("错误的time: {}", time))
+            .unwrap();
         if day_has_night {
             *idx_full
         } else {
