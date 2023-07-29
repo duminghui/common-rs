@@ -326,7 +326,7 @@ impl TimeRange {
     //     }
     // }
 
-    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> i16 {
+    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> Result<i16, String> {
         self.minutes.minute_idx(time, day_has_night)
     }
 }

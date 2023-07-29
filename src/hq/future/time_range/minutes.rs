@@ -208,24 +208,20 @@ impl Minutes {
     }
 
     // time必须为转换后的1m时间
-    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> i16 {
-        let (idx_full, idx_non_night) = self
-            .minute_idx_hmap
-            .get(time)
-            .ok_or_else(|| {
-                let times_vec_str = self
-                    .times_vec
-                    .iter()
-                    .map(|v| format!("({},{})", v.0.format("%H:%M:%S"), v.1.format("%H:%M:%S")))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("错误的time:{} [{}]", time, times_vec_str)
-            })
-            .unwrap();
+    pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> Result<i16, String> {
+        let (idx_full, idx_non_night) = self.minute_idx_hmap.get(time).ok_or_else(|| {
+            let times_vec_str = self
+                .times_vec
+                .iter()
+                .map(|v| format!("({},{})", v.0.format("%H:%M:%S"), v.1.format("%H:%M:%S")))
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("错误的time:{} [{}]", time, times_vec_str)
+        })?;
         if day_has_night {
-            *idx_full
+            Ok(*idx_full)
         } else {
-            *idx_non_night
+            Ok(*idx_non_night)
         }
     }
 
