@@ -17,6 +17,7 @@ pub struct MinuteStrategyInfo {
 
 #[derive(Debug, Default)]
 pub struct Minutes {
+    times_vec:            Vec<(NaiveTime, NaiveTime)>,
     minute_strategy_hmap: HashMap<NaiveTime, Arc<MinuteStrategyInfo>>,
     minute_idx_hmap:      HashMap<NaiveTime, (i16, i16)>,
 }
@@ -147,6 +148,7 @@ impl Minutes {
         }
         let minute_idx_hmap = Minutes::minute_idx_hmap(times_vec);
         Minutes {
+            times_vec: times_vec.to_vec(),
             minute_strategy_hmap,
             minute_idx_hmap,
         }
@@ -210,7 +212,15 @@ impl Minutes {
         let (idx_full, idx_non_night) = self
             .minute_idx_hmap
             .get(time)
-            .ok_or_else(|| format!("错误的time: {}", time))
+            .ok_or_else(|| {
+                let times_vec_str = self
+                    .times_vec
+                    .iter()
+                    .map(|v| format!("({},{})", v.0.format("%H:%M:%S"), v.1.format("%H:%M:%S")))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("错误的time:{} [{}]", time, times_vec_str)
+            })
             .unwrap();
         if day_has_night {
             *idx_full
