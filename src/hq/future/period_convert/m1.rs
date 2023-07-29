@@ -5,9 +5,10 @@ use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike};
 use sqlx::MySqlPool;
 
 use super::PeriodConvertError;
-use crate::hq::future::time_range;
+use crate::hq::future::time_range::{self, TimeRange};
 use crate::ymdhms::Hms;
 
+// TODO 这块的Arc还没有做
 static BREED_CONVERTER1M_HAMP: OnceLock<HashMap<String, Arc<Converter1m>>> = OnceLock::new();
 
 pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConvertError> {
@@ -48,7 +49,15 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
         if *first_close_time < NaiveTime::from_hms_opt(3, 0, 0).unwrap() {
             hhmm_time_map.insert(0u16, NaiveTime::from_hms_opt(0, 0, 0).unwrap());
         }
-        breed_converter1m_hmap.insert(breed.to_string(), Arc::new(Converter1m { hhmm_time_map }));
+        let breed = breed.to_string();
+        breed_converter1m_hmap.insert(
+            breed.clone(),
+            Arc::new(Converter1m {
+                breed,
+                time_range: time_range.clone(),
+                hhmm_time_map,
+            }),
+        );
     }
     BREED_CONVERTER1M_HAMP.set(breed_converter1m_hmap).unwrap();
 
@@ -57,6 +66,8 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
 
 #[derive(Debug)]
 pub struct Converter1m {
+    breed:         String,
+    time_range:    Arc<TimeRange>,
     // 一些通用规则之外的时间点
     hhmm_time_map: HashMap<u16, NaiveTime>,
 }
@@ -70,11 +81,11 @@ impl Converter1m {
     /// 其他时间
     /// hh:mm:00~xx:mm:59的数据属于hh:(mm+1):00的K线数据
     /// time 为自然时间
-    pub fn convert(&self, dt: &NaiveDateTime) -> NaiveDateTime {
+    pub fn convert(&self, dt: &NaiveDateTime) -> Result<NaiveDateTime, String> {
         let date = dt.date();
         let hms = Hms::from(dt);
 
-        self.hhmm_time_map.get(&hms.hhmm).map_or_else(
+        let dt_new = self.hhmm_time_map.get(&hms.hhmm).map_or_else(
             || {
                 let time = dt.time();
                 let hour = time.hour();
@@ -97,7 +108,16 @@ impl Converter1m {
                     date.and_time(*v)
                 }
             },
-        )
+        );
+        if !self.time_range.minute_in_range(&dt_new) {
+            Err(format!(
+                "转换后的时间不在该品种的交易范围内: {} {} -> {}",
+                self.breed,
+                dt.format("%Y-%m-%d %H:%M:%S"),
+                dt_new.format("%Y-%m-%d %H:%M:%S")
+            ))?;
+        }
+        Ok(dt_new)
     }
 }
 
@@ -138,6 +158,10 @@ mod tests {
             let converter1m = by_breed(breed).unwrap();
 
             let time_1m = converter1m.convert(&dt);
+            let Ok(time_1m) = time_1m else{
+                println!("{}: {}",source, time_1m.err().unwrap());
+                continue;
+            };
             let time_t = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();
             println!("{}: {} c:{} {}", source, time_1m, target, time_1m == time_t)
         }
@@ -231,42 +255,43 @@ mod tests {
     //     test_1m("SA", &results).await;
     // }
 
-    // #[tokio::test]
-    // async fn test_zn() {
-    //     // 21:00:00 ~ 01:00:00
-    //     // 09:00:00 ~ 10:15:00
-    //     // 10:30:00 ~ 11:30:00
-    //     // 13:30:00 ~ 15:00:00
-    //     let results = vec![
-    //         // 跨周的时间
-    //         // 夜盘 start
-    //         ("2022-06-10 20:59:59", "2022-06-10 21:01:00"),
-    //         ("2022-06-10 21:00:00", "2022-06-10 21:01:00"),
-    //         ("2022-06-10 23:58:33", "2022-06-10 23:59:00"),
-    //         ("2022-06-10 23:59:33", "2022-06-11 00:00:00"),
-    //         ("2022-06-11 00:00:00", "2022-06-11 00:00:00"),
-    //         ("2022-06-11 00:00:33", "2022-06-11 00:01:00"),
-    //         ("2022-06-11 00:01:00", "2022-06-11 00:02:00"),
-    //         ("2022-06-11 00:59:00", "2022-06-11 01:00:00"),
-    //         ("2022-06-11 00:59:59", "2022-06-11 01:00:00"),
-    //         ("2022-06-11 01:00:00", "2022-06-11 01:00:00"),
-    //         // 夜盘 end
-    //         // 白盘 start
-    //         ("2022-06-13 09:00:00", "2022-06-13 09:01:00"),
-    //         ("2022-06-13 10:14:59", "2022-06-13 10:15:00"),
-    //         ("2022-06-13 10:15:00", "2022-06-13 10:15:00"),
-    //         ("2022-06-13 10:30:00", "2022-06-13 10:31:00"),
-    //         ("2022-06-13 10:30:59", "2022-06-13 10:31:00"),
-    //         ("2022-06-13 11:29:59", "2022-06-13 11:30:00"),
-    //         ("2022-06-13 11:30:00", "2022-06-13 11:30:00"),
-    //         ("2022-06-13 13:30:00", "2022-06-13 13:31:00"),
-    //         ("2022-06-13 14:59:00", "2022-06-13 15:00:00"),
-    //         ("2022-06-13 14:59:59", "2022-06-13 15:00:00"),
-    //         ("2022-06-13 15:00:00", "2022-06-13 15:00:00"),
-    //         // 白盘 end
-    //     ];
-    //     test_1m("zn", &results).await;
-    // }
+    #[tokio::test]
+    async fn test_zn() {
+        // 21:00:00 ~ 01:00:00
+        // 09:00:00 ~ 10:15:00
+        // 10:30:00 ~ 11:30:00
+        // 13:30:00 ~ 15:00:00
+        let results = vec![
+            // 跨周的时间
+            // 夜盘 start
+            ("2022-06-10 20:59:59", "2022-06-10 21:01:00"),
+            ("2022-06-10 21:00:00", "2022-06-10 21:01:00"),
+            ("2022-06-10 23:58:33", "2022-06-10 23:59:00"),
+            ("2022-06-10 23:59:33", "2022-06-11 00:00:00"),
+            ("2022-06-11 00:00:00", "2022-06-11 00:00:00"),
+            ("2022-06-11 00:00:33", "2022-06-11 00:01:00"),
+            ("2022-06-11 00:01:00", "2022-06-11 00:02:00"),
+            ("2022-06-11 00:59:00", "2022-06-11 01:00:00"),
+            ("2022-06-11 00:59:59", "2022-06-11 01:00:00"),
+            ("2022-06-11 01:00:00", "2022-06-11 01:00:00"),
+            // 夜盘 end
+            // 白盘 start
+            ("2022-06-13 09:00:00", "2022-06-13 09:01:00"),
+            ("2022-06-13 10:14:59", "2022-06-13 10:15:00"),
+            ("2022-06-13 10:15:00", "2022-06-13 10:15:00"),
+            ("2022-06-13 10:30:00", "2022-06-13 10:31:00"),
+            ("2022-06-13 10:30:59", "2022-06-13 10:31:00"),
+            ("2022-06-13 11:29:59", "2022-06-13 11:30:00"),
+            ("2022-06-13 11:30:00", "2022-06-13 11:30:00"),
+            ("2022-06-13 13:30:00", "2022-06-13 13:31:00"),
+            ("2022-06-13 14:59:00", "2022-06-13 15:00:00"),
+            ("2022-06-13 14:59:59", "2022-06-13 15:00:00"),
+            ("2022-06-13 15:00:00", "2022-06-13 15:00:00"),
+            ("2022-07-26 01:01:30", "2022-06-13 15:00:00"),
+            // 白盘 end
+        ];
+        test_1m("zn", &results).await;
+    }
 
     #[tokio::test]
     async fn test_ag() {

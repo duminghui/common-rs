@@ -207,6 +207,11 @@ impl Minutes {
         minute_idx_map
     }
 
+    pub fn minute_in_range<T: Timelike>(&self, time: &T) -> bool {
+        let time = NaiveTime::from_hms_opt(time.hour(), time.minute(), 0).unwrap();
+        self.minute_idx_hmap.contains_key(&time)
+    }
+
     // time必须为转换后的1m时间
     pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> Result<i16, String> {
         let (idx_full, idx_non_night) = self.minute_idx_hmap.get(time).ok_or_else(|| {

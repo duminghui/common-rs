@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use itertools::Itertools;
 use sqlx::MySqlPool;
 
@@ -328,6 +328,10 @@ impl TimeRange {
 
     pub fn minute_idx(&self, time: &NaiveTime, day_has_night: bool) -> Result<i16, String> {
         self.minutes.minute_idx(time, day_has_night)
+    }
+
+    pub fn minute_in_range<T: Timelike>(&self, time: &T) -> bool {
+        self.minutes.minute_in_range(time)
     }
 }
 
@@ -711,6 +715,7 @@ mod tests {
             ("2023-06-30 21:01:00", "2023-06-30 21:02:00"),
             ("2023-06-30 22:01:00", "2023-06-30 22:02:00"),
             ("2023-07-01 01:00:00", "2023-07-03 09:01:00"), // 周六
+            ("2023-07-26 01:00:00", "2023-07-26 09:01:00"),
         ];
 
         test_next_minute(breed, &results).await;

@@ -72,7 +72,7 @@ pub struct Converter {
 }
 
 impl Converter {
-    pub fn to_1m(&self, dt: &NaiveDateTime) -> NaiveDateTime {
+    pub fn to_1m(&self, dt: &NaiveDateTime) -> Result<NaiveDateTime, String> {
         self.converter1m.convert(dt)
     }
 
