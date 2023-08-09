@@ -8,6 +8,10 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+pub trait SqlEntityReplace: Send {
+    fn sql_entity_replace(&self, key: &str, db: &str, tbl_name: &str) -> SqlEntity;
+}
+
 #[derive(Debug, Clone)]
 pub struct SqlEntity {
     key:  String,
@@ -61,13 +65,13 @@ impl std::fmt::Display for BatchExecInfo {
         if self.is_exec {
             write!(
                 f,
-                "Rows affected:{}/C:{}(T:{}) [{:>9.3?}]",
-                self.rows_affected, self.entity_count, self.exec_threshold, self.elapsed
+                "[{:>9.3?}] Rows affected:{:>4}/{:>4} (T:{:>4})",
+                self.elapsed, self.rows_affected, self.entity_count, self.exec_threshold
             )
         } else {
             write!(
                 f,
-                "*Not Exec* C:{}/T:{}",
+                "*Not Exec* C:{:>4}/T:{:>4}",
                 self.entity_count, self.exec_threshold,
             )
         }
