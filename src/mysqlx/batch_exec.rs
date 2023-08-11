@@ -53,11 +53,11 @@ type Result = std::result::Result<BatchExecInfo, BatchExecError>;
 /// T: threshold
 #[derive(Debug, Default)]
 pub struct BatchExecInfo {
-    is_exec:        bool,
-    exec_threshold: u16,
-    entity_count:   u16,
-    rows_affected:  u64,
-    elapsed:        Duration,
+    is_exec:          bool,
+    exec_threshold:   u16,
+    pub entity_count: u16,
+    rows_affected:    u64,
+    elapsed:          Duration,
 }
 
 impl std::fmt::Display for BatchExecInfo {
