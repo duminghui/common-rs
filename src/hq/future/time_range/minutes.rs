@@ -159,7 +159,7 @@ impl Minutes {
         let time_2300 = NaiveTime::from_hms_opt(23, 0, 0).unwrap();
         let time_0100 = NaiveTime::from_hms_opt(1, 0, 0).unwrap();
         let time_0230 = NaiveTime::from_hms_opt(2, 30, 0).unwrap();
-        let has_night = vec![time_2300, time_0100, time_0230].contains(close_time);
+        let has_night = [time_2300, time_0100, time_0230].contains(close_time);
 
         let day = NaiveDate::default();
 

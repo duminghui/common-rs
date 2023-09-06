@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_vec() {
-        let vec = vec![1, 2, 3];
+        let vec = [1, 2, 3];
         // println!("{:?}", vec.get_unchecked(-1));
         let r = unsafe { vec.get_unchecked(2) };
         println!("{:?}", r);
