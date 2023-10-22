@@ -42,7 +42,7 @@ impl Extend<DbItem> for StoreData {
                         }
                         range_vec
                     });
-            let period_vec_hmap = self.entry(row.breed).or_insert_with(Default::default);
+            let period_vec_hmap = self.entry(row.breed).or_default();
             period_vec_hmap
                 .entry(row.period)
                 .or_insert_with(|| vec_time_range_hms.to_vec());
