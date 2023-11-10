@@ -10,16 +10,23 @@ mod mysqlx_test_pool;
 pub mod qh;
 #[cfg(feature = "redis")]
 pub mod redis;
+pub mod running;
+#[cfg(feature = "serde_extend")]
+pub mod serde;
 #[cfg(feature = "sizehmap")]
 pub mod sizehmap;
 #[cfg(feature = "timer")]
 pub mod timer;
 #[cfg(feature = "ulog")]
 pub mod ulog;
+#[cfg(feature = "utoml")]
+pub mod utoml;
 #[cfg(feature = "yaml")]
 pub mod yaml;
 #[cfg(feature = "ymdhms")]
 pub mod ymdhms;
+
+pub type AResult<T> = eyre::Result<T>;
 
 #[cfg(test)]
 mod tests {

@@ -237,34 +237,34 @@ impl Minutes {
     ) -> NaiveDateTime {
         let time = dt.time();
         let time = NaiveTime::from_hms_opt(time.hour(), time.minute(), 0).unwrap();
-        let stragegy = self.minute_strategy_hmap.get(&time).unwrap();
+        let strategy = self.minute_strategy_hmap.get(&time).unwrap();
         let day = dt.date();
         let trade_day = trade_day::trade_day(&day);
-        if stragegy.is_use_next_td_first_close {
+        if strategy.is_use_next_td_first_close {
             trade_day.td_next.and_time(*non_night_first_close)
-        } else if stragegy.is_check_day {
+        } else if strategy.is_check_day {
             if trade_day.is_trade_day {
-                day.and_time(stragegy.close_time)
+                day.and_time(strategy.close_time)
             } else {
                 trade_day.td_next.and_time(*non_night_first_close)
             }
-        } else if stragegy.is_check_night_2300 {
+        } else if strategy.is_check_night_2300 {
             if trade_day.has_night {
-                day.and_time(stragegy.close_time)
+                day.and_time(strategy.close_time)
             } else {
                 trade_day.td_next.and_time(*non_night_first_close)
             }
-        } else if stragegy.is_check_night_next_day_0100_0230 {
+        } else if strategy.is_check_night_next_day_0100_0230 {
             if trade_day.has_night {
-                day.succ_opt().unwrap().and_time(stragegy.close_time)
+                day.succ_opt().unwrap().and_time(strategy.close_time)
             } else {
                 trade_day.td_next.and_time(*non_night_first_close)
             }
-        } else if stragegy.is_check_prev_night_0100_0230 {
+        } else if strategy.is_check_prev_night_0100_0230 {
             let prev_day = day.pred_opt().unwrap();
             let prev_trade_day = trade_day::trade_day(&prev_day);
             if prev_trade_day.has_night {
-                day.and_time(stragegy.close_time)
+                day.and_time(strategy.close_time)
             } else {
                 trade_day.td_next.and_time(*non_night_first_close)
             }
