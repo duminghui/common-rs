@@ -51,7 +51,7 @@ pub mod opt_naive_time_hhmm {
     }
 }
 
-const DATE_FORMAT: &str = "%Y.%m.%d";
+const DATE_FORMAT: &str = "%Y-%m-%d";
 
 pub mod naive_date {
     use chrono::NaiveDate;
