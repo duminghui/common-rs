@@ -10,7 +10,7 @@ use tracing_subscriber::filter::{LevelFilter, Targets};
 use tracing_subscriber::fmt::time::OffsetTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, Layer, Registry};
+use tracing_subscriber::{fmt, Registry};
 
 pub struct LogConfig {
     max_files:         usize,
@@ -23,7 +23,23 @@ pub struct LogConfig {
     target_filters:    Vec<(String, LevelFilter)>,
 }
 
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            max_files:         9,
+            level_filter:      LevelFilter::INFO,
+            console_enable:    true,
+            console_line_info: true,
+            console_target:    true,
+            file_line_info:    true,
+            file_target:       true,
+            target_filters:    Vec::new(),
+        }
+    }
+}
+
 impl LogConfig {
+    #[deprecated(note = "Use LogConfig::default()")]
     pub fn new(
         max_files: usize,
         level_filter: LevelFilter,
@@ -42,6 +58,52 @@ impl LogConfig {
             file_line_info,
             file_target,
             target_filters: Vec::new(),
+        }
+    }
+
+    pub fn with_max_files(self, max_files: usize) -> LogConfig {
+        LogConfig { max_files, ..self }
+    }
+
+    pub fn with_level_filter(self, level_filter: LevelFilter) -> LogConfig {
+        LogConfig {
+            level_filter,
+            ..self
+        }
+    }
+
+    pub fn with_console_enable(self, console_enable: bool) -> LogConfig {
+        LogConfig {
+            console_enable,
+            ..self
+        }
+    }
+
+    pub fn with_console_line_info(self, console_line_info: bool) -> LogConfig {
+        LogConfig {
+            console_line_info,
+            ..self
+        }
+    }
+
+    pub fn with_console_target(self, console_target: bool) -> LogConfig {
+        LogConfig {
+            console_target,
+            ..self
+        }
+    }
+
+    pub fn with_file_line_info(self, file_line_info: bool) -> LogConfig {
+        LogConfig {
+            file_line_info,
+            ..self
+        }
+    }
+
+    pub fn with_file_target(self, file_target: bool) -> LogConfig {
+        LogConfig {
+            file_target,
+            ..self
         }
     }
 
@@ -76,20 +138,18 @@ pub fn init_tracing(
     // .with_target("mio::poll", LevelFilter::TRACE)
     // .not();
 
-    let console_filter = if config.console_enable {
-        config.level_filter
-    } else {
-        LevelFilter::OFF
-    };
-
-    let console_layer = fmt::layer()
+    let console_layer = if config.console_enable {
+        let layer = fmt::layer()
         // .pretty()
         .with_ansi(true)
         .with_file(config.console_line_info)
         .with_line_number(config.console_line_info)
         .with_target(config.console_target)
-        .with_timer(timer.clone())
-        .with_filter(console_filter);
+        .with_timer(timer.clone());
+        Some(layer)
+    } else {
+        None
+    };
 
     // 文件
     // let timer = LocalTime::new(time_format);
@@ -109,11 +169,6 @@ pub fn init_tracing(
 
     let (non_blocking_appender, file_worker_guard) = tracing_appender::non_blocking(file_appender);
 
-    // let file_appender_targets = Targets::new()
-    //     .with_target("sqlx::query", LevelFilter::OFF)
-    //     .with_target("mio::poll", LevelFilter::TRACE)
-    //     .not();
-
     let file_appender_layer = fmt::layer()
         .with_ansi(false)
         .with_file(config.file_line_info)
@@ -121,7 +176,6 @@ pub fn init_tracing(
         .with_target(config.file_target)
         .with_timer(timer)
         .with_writer(non_blocking_appender);
-    // .with_filter(file_appender_targets);
 
     let targets = if config.target_filters.is_empty() {
         Targets::new().with_default(config.level_filter)
@@ -153,5 +207,30 @@ mod tests {
     fn println(dir: impl AsRef<Path>, filename: impl AsRef<Path>) {
         let tmp = dir.as_ref().join(filename);
         println!("{:?}", tmp.as_path());
+    }
+
+    #[allow(unused)]
+    #[derive(Debug)]
+    struct Tmp {
+        v1: i32,
+        v2: i32,
+        v3: i32,
+    }
+
+    impl Tmp {
+        fn with_v1(self, v1: i32) -> Tmp {
+            Tmp { v1, ..self }
+        }
+    }
+
+    #[test]
+    fn test_struct() {
+        let tmp = Tmp {
+            v1: 100,
+            v2: 200,
+            v3: 300,
+        }
+        .with_v1(1000);
+        println!("{:?}", tmp);
     }
 }
