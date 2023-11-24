@@ -158,3 +158,17 @@ pub mod opt_naive_datetime {
             .map_err(|e| serde::de::Error::custom(format!("{}:{}", e, s)))
     }
 }
+
+pub mod timestamp_naive_datetime {
+    use chrono::{Local, NaiveDateTime, TimeZone};
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let timestamp = i64::deserialize(deserializer)?;
+        let datetime = Local.timestamp_opt(timestamp, 0).unwrap();
+        Ok(datetime.naive_local())
+    }
+}
