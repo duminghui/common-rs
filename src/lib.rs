@@ -2,6 +2,7 @@
 pub mod cell;
 #[cfg(feature = "hq")]
 pub mod hq;
+pub mod human;
 #[cfg(feature = "mysqlx")]
 pub mod mysqlx;
 #[cfg(feature = "mysqlx")]

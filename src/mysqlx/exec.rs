@@ -1,9 +1,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use indicatif::HumanCount;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Executor, MySqlPool};
+
+use crate::human::orignal::HumanCount;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
