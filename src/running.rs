@@ -1,7 +1,7 @@
 use std::env;
 use std::path::Path;
 
-use sysinfo::{ProcessRefreshKind, SystemExt};
+use sysinfo::ProcessRefreshKind;
 
 #[cfg(windows)]
 fn name_wrapper(name: &str) -> String {
