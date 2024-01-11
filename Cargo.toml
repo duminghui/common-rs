@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.31", optional = true, default-features = false, features = ["std"] }
-color-eyre = "0.6.2"
+# color-eyre = "0.6.2"
 eyre = "0.6.11"
 # futures = { version = "0.3.28", optional = true, default-features = false, features = ["std"] }
 futures-util = { version = "0.3.30", optional = true, default-features = false, features = ["std"] }
