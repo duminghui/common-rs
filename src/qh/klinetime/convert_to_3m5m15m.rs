@@ -22,8 +22,8 @@ impl ConvertTo3m5m15m {
             etime_offset = pv - time_offset;
         }
         TimeRangeDateTime::new(
-            *time - Duration::minutes(stime_offset as i64),
-            *time + Duration::minutes(etime_offset as i64),
+            *time - Duration::try_minutes(stime_offset as i64).unwrap(),
+            *time + Duration::try_minutes(etime_offset as i64).unwrap(),
         )
     }
 }
@@ -71,7 +71,7 @@ mod tests {
                 }
                 let xm_vec = xm_vec_map.entry(key).or_default();
                 xm_vec.push(datetime);
-                sdatetime += Duration::minutes(1);
+                sdatetime += Duration::try_minutes(1).unwrap();
             }
         }
 

@@ -44,7 +44,7 @@ fn gen_time_map(period_value: u32) -> HashMap<NaiveTime, NaiveTime> {
                 time_vec.clear();
             }
 
-            time += Duration::minutes(1);
+            time += Duration::try_minutes(1).unwrap();
         }
     }
     if !time_vec.is_empty() {
@@ -105,7 +105,7 @@ mod tests {
             let mut time = start;
             while time <= end {
                 println!("{}  {:?}", time, time_map.get(&time));
-                time += Duration::minutes(1);
+                time += Duration::try_minutes(1).unwrap();
             }
         }
     }

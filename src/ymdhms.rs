@@ -234,7 +234,7 @@ mod tests {
     fn test_naive_time_add() {
         let mut time = NaiveTime::from_hms_opt(23, 59, 59).unwrap();
         let r_time = NaiveTime::from_hms_opt(0, 0, 59).unwrap();
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{:?}, {:?}, {}", time, r_time, time == r_time);
         assert_eq!(time, r_time)
     }

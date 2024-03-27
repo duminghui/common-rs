@@ -46,15 +46,17 @@ impl ConvertTo1W {
         let weekday = date.weekday();
         let number_from_monday = weekday.number_from_monday();
         let mut end_date = match weekday {
-            Weekday::Fri if hhmmss > 210000 => date + Duration::days(7),
-            Weekday::Sat | Weekday::Sun => date + Duration::days(12 - number_from_monday as i64),
-            _ => date + Duration::days(5 - number_from_monday as i64),
+            Weekday::Fri if hhmmss > 210000 => date + Duration::try_days(7).unwrap(),
+            Weekday::Sat | Weekday::Sun => {
+                date + Duration::try_days(12 - number_from_monday as i64).unwrap()
+            },
+            _ => date + Duration::try_days(5 - number_from_monday as i64).unwrap(),
         };
         let trd = &self.trd;
         let start_date = if trd.is_had_night(breed) {
-            end_date - Duration::days(7)
+            end_date - Duration::try_days(7).unwrap()
         } else {
-            end_date - Duration::days(4)
+            end_date - Duration::try_days(4).unwrap()
         };
         let tdu = &self.tdu;
         // 暂时不做开始时间的判断, 在时间显示上只是显示结束的日期, 如果判断开始日期, 开始时期也会变更, 没必要.
@@ -104,18 +106,18 @@ mod tests {
         let datetime = date.and_time(time);
         let hhmmss = Hms::from(&time).hhmmss;
         for i in 0..9 {
-            let datetime = datetime + Duration::days(i);
+            let datetime = datetime + Duration::try_days(i).unwrap();
             let weekday = datetime.weekday();
             let number_from_monday = weekday.number_from_monday();
             let end_date = match weekday {
-                Weekday::Fri if hhmmss > 210000 => datetime + Duration::days(7),
+                Weekday::Fri if hhmmss > 210000 => datetime + Duration::try_days(7).unwrap(),
                 Weekday::Sat | Weekday::Sun => {
-                    datetime + Duration::days(12 - number_from_monday as i64)
+                    datetime + Duration::try_days(12 - number_from_monday as i64).unwrap()
                 },
-                _ => datetime + Duration::days(5 - number_from_monday as i64),
+                _ => datetime + Duration::try_days(5 - number_from_monday as i64).unwrap(),
             };
-            let start_date1 = end_date - Duration::days(7);
-            let start_date2 = end_date - Duration::days(4);
+            let start_date1 = end_date - Duration::try_days(7).unwrap();
+            let start_date2 = end_date - Duration::try_days(4).unwrap();
             println!(
                 "{}({}) {}({}) {}({}) {}({})",
                 datetime,

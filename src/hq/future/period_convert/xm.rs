@@ -62,7 +62,7 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
                 } else {
                     date.and_time(*close_time)
                 };
-                let mut time = open_dt + Duration::minutes(1);
+                let mut time = open_dt + Duration::try_minutes(1).unwrap();
                 while time <= close_dt {
                     if period_s_dt.is_none() {
                         period_s_dt = Some(time);
@@ -105,7 +105,7 @@ pub async fn init_from_time_range(pool: Arc<MySqlPool>) -> Result<(), PeriodConv
                         }
                         time_vec.clear();
                     }
-                    time += Duration::minutes(1);
+                    time += Duration::try_minutes(1).unwrap();
                 }
             }
 

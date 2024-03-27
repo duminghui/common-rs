@@ -51,7 +51,7 @@ impl BreedTxTimeRange {
                     close_idx = Some(idx);
                     break;
                 } else {
-                    return Ok(*datetime + Duration::minutes(1));
+                    return Ok(*datetime + Duration::try_minutes(1).unwrap());
                 }
             }
         }
@@ -551,7 +551,8 @@ mod tests {
             .unwrap()
             .and_hms_opt(2, 46, 1)
             .unwrap();
-        let datetime = datetime - Duration::hours(6) - Duration::seconds(57);
+        let datetime =
+            datetime - Duration::try_hours(6).unwrap() - Duration::try_seconds(57).unwrap();
         println!("{}", datetime);
     }
 }

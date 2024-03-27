@@ -73,7 +73,7 @@ impl Minutes {
             }
             .and_time(next_close_time);
 
-            let mut dt_time = start_time + Duration::minutes(1);
+            let mut dt_time = start_time + Duration::try_minutes(1).unwrap();
             while dt_time <= end_time {
                 let minute = dt_time.time();
                 // 下一交易日的白盘的第一个收盘点
@@ -143,7 +143,7 @@ impl Minutes {
 
                 minute_strategy_hmap.insert(minute, minute_strategy.clone());
 
-                dt_time += Duration::minutes(1);
+                dt_time += Duration::try_minutes(1).unwrap();
             }
         }
         let minute_idx_hmap = Minutes::minute_idx_hmap(times_vec);
@@ -184,7 +184,7 @@ impl Minutes {
                 night_idx_offset = (close_dt - time).num_minutes() as i16;
             }
 
-            time += Duration::minutes(1);
+            time += Duration::try_minutes(1).unwrap();
             while time <= close_dt {
                 minute_idx += 1;
 
@@ -200,7 +200,7 @@ impl Minutes {
 
                 minute_idx_map.insert(time.time(), (minute_idx, minute_idx_non_night));
 
-                time += Duration::minutes(1);
+                time += Duration::try_minutes(1).unwrap();
             }
         }
 

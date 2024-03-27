@@ -89,6 +89,8 @@ impl TradingDayUtil {
         let mut prev_idx = 0;
         let mut idx = 0;
         let mut prev_date = None;
+        let days_1 = Duration::try_days(1).unwrap();
+        let days_3 = Duration::try_days(3).unwrap();
         while let Some(db_item) = db_rows.try_next().await? {
             let td = Ymd::from(db_item);
             td_vec.push(td);
@@ -104,7 +106,7 @@ impl TradingDayUtil {
                 // 相差两天, 两个交易日隔了一天, 中间一天是节假日
                 // 相差大于三天, 中间是节假日
                 let diff = date - prev_date;
-                diff == Duration::days(1) || diff == Duration::days(3)
+                diff == days_1 || diff == days_3
             } else {
                 // 如果没有前一个交易日的数据, 则默认为有夜盘
                 true

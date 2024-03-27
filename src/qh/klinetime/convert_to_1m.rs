@@ -185,7 +185,7 @@ impl ConvertTo1m {
             .map_or_else(
                 || {
                     date.and_time(NaiveTime::from_hms_opt(hour as u32, min as u32, 0).unwrap())
-                        + Duration::minutes(1)
+                        + Duration::try_minutes(1).unwrap()
                 },
                 |v| date.and_time(NaiveTime::from(v)),
             );
@@ -565,7 +565,7 @@ mod tests {
             .unwrap()
             .and_hms_opt(23, 59, 59)
             .unwrap();
-        datetime += Duration::seconds(1);
+        datetime += Duration::try_seconds(1).unwrap();
         println!("add: {}", datetime);
     }
 }

@@ -111,7 +111,7 @@ mod tests {
                 let d1_datetime = ConvertTo1d::current().time_range(breed, &datetime).unwrap();
                 println!("{}: {}", datetime, d1_datetime);
                 assert_eq!(d1_datetime.to_string(), rdatetime_str);
-                sdatetime += Duration::minutes(1);
+                sdatetime += Duration::try_minutes(1).unwrap();
             }
         }
 

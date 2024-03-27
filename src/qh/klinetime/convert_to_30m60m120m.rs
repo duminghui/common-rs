@@ -260,7 +260,7 @@ mod tests {
                 }
                 let xm_vec = xm_vec_map.entry(key).or_default();
                 xm_vec.push(datetime);
-                sdatetime += Duration::minutes(1);
+                sdatetime += Duration::try_minutes(1).unwrap();
             }
         }
 

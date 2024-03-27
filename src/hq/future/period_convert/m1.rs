@@ -94,7 +94,8 @@ impl Converter1m {
                 // if sec == 0 {
                 // date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap())
                 // } else {
-                date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap()) + Duration::minutes(1)
+                date.and_time(NaiveTime::from_hms_opt(hour, min, 0).unwrap())
+                    + Duration::try_minutes(1).unwrap()
                 // }
             },
             |v| {
@@ -158,8 +159,8 @@ mod tests {
             let converter1m = by_breed(breed).unwrap();
 
             let time_1m = converter1m.convert(&dt);
-            let Ok(time_1m) = time_1m else{
-                println!("{}: {}",source, time_1m.err().unwrap());
+            let Ok(time_1m) = time_1m else {
+                println!("{}: {}", source, time_1m.err().unwrap());
                 continue;
             };
             let time_t = NaiveDateTime::parse_from_str(target, "%Y-%m-%d %H:%M:%S").unwrap();

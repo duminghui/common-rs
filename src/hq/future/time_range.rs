@@ -132,7 +132,7 @@ impl TimeRange {
             } else {
                 daytime
             };
-            let mut time = day.and_time(open_time) + Duration::minutes(1);
+            let mut time = day.and_time(open_time) + Duration::try_minutes(1).unwrap();
             let close_dt = if open_time > close_time {
                 day.succ_opt().unwrap().and_time(close_time)
             } else {
@@ -141,7 +141,7 @@ impl TimeRange {
 
             while time <= close_dt {
                 minutes.push(time);
-                time += Duration::minutes(1);
+                time += Duration::try_minutes(1).unwrap();
             }
         }
 
@@ -177,7 +177,7 @@ impl TimeRange {
         let date = dt.date();
         let td_info = trade_day::trade_day(&date);
         self.close_time_info_map.get(&dt.time()).map_or_else(
-            || (*dt + Duration::minutes(1), None),
+            || (*dt + Duration::try_minutes(1).unwrap(), None),
             |v| {
                 let date = if v.is_night_close_2300 {
                     td_info.td_next
@@ -377,8 +377,8 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                 (open_time, open_time)
             };
 
-            let night_open_time = *night_open_time + Duration::minutes(1);
-            let non_night_open_time = *non_night_open_time + Duration::minutes(1);
+            let night_open_time = *night_open_time + Duration::try_minutes(1).unwrap();
+            let non_night_open_time = *non_night_open_time + Duration::try_minutes(1).unwrap();
 
             let mut close_time_info_map = HashMap::new();
 
@@ -391,8 +391,9 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                 times_vec.push((open_time, close_time));
 
                 let next_idx = (i + 1) % time_len;
-                let time_next =
-                    unsafe { *open_times.get_unchecked(next_idx) + Duration::minutes(1) };
+                let time_next = unsafe {
+                    *open_times.get_unchecked(next_idx) + Duration::try_minutes(1).unwrap()
+                };
                 let mut non_night_next = time_next;
                 let mut is_night_close_2300 = false;
                 let mut is_night_close_other = false;
@@ -406,8 +407,9 @@ pub async fn init_from_db(pool: Arc<MySqlPool>) -> Result<(), TimeRangeError> {
                         }
                     }
                     if i == time_len - 1 {
-                        non_night_next =
-                            unsafe { *open_times.get_unchecked(1) + Duration::minutes(1) };
+                        non_night_next = unsafe {
+                            *open_times.get_unchecked(1) + Duration::try_minutes(1).unwrap()
+                        };
                     }
                 }
 
@@ -474,7 +476,7 @@ pub fn day_all_minutes(day: &NaiveDate) -> Vec<NaiveDateTime> {
     let end_minute = day.succ_opt().unwrap().and_hms_opt(15, 1, 0).unwrap();
     while minute < end_minute {
         minutes.push(minute);
-        minute += Duration::minutes(1)
+        minute += Duration::try_minutes(1).unwrap()
     }
 
     minutes
@@ -507,17 +509,17 @@ mod tests {
     #[test]
     fn test_chrono_2() {
         let mut time = NaiveTime::from_hms_opt(23, 58, 0).unwrap();
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
-        time += Duration::minutes(1);
+        time += Duration::try_minutes(1).unwrap();
         println!("{time}");
     }
 
