@@ -38,7 +38,7 @@ impl Default for LogConfig<'_> {
     fn default() -> Self {
         Self {
             max_files:         9,
-            level_filter:      LevelFilter::INFO,
+            level_filter:      LevelFilter::DEBUG,
             target_filters:    Vec::new(),
             console_enable:    true,
             console_line_info: true,
@@ -182,12 +182,12 @@ pub fn tracing_init(config: &LogConfig) -> Option<Vec<WorkerGuard>> {
 
     let console_layer = if config.console_enable {
         let layer = fmt::layer()
-        // .pretty()
-        .with_ansi(true)
-        .with_file(config.console_line_info)
-        .with_line_number(config.console_line_info)
-        .with_target(config.console_target)
-        .with_timer(timer.clone());
+            // .pretty()
+            .with_ansi(true)
+            .with_file(config.console_line_info)
+            .with_line_number(config.console_line_info)
+            .with_target(config.console_target)
+            .with_timer(timer.clone());
         Some(layer)
     } else {
         None
@@ -224,15 +224,20 @@ pub fn tracing_init(config: &LogConfig) -> Option<Vec<WorkerGuard>> {
             file_appender_layer_worker_guard(config.file_name.as_ref(), config, timer.clone());
         let mut guard_vec = vec![worker_guard];
 
-        let mut field_file_layer_vec = vec![];
-        for log_file in config.field_files.iter() {
-            let file_name = format!("{}.log", log_file);
-            let FileAppenderLayerWorkerGuard(file_append_layer, worker_guard) =
-                file_appender_layer_worker_guard(file_name, config, timer.clone());
-            let log_file_layer = TracingFileLayer::new(file_append_layer, "logfile", log_file);
-            field_file_layer_vec.push(log_file_layer);
-            guard_vec.push(worker_guard);
-        }
+        let field_file_layer_vec = if !config.field_files.is_empty() {
+            let mut field_file_layer_vec = vec![];
+            for log_file in config.field_files.iter() {
+                let file_name = format!("{}.log", log_file);
+                let FileAppenderLayerWorkerGuard(file_append_layer, worker_guard) =
+                    file_appender_layer_worker_guard(file_name, config, timer.clone());
+                let log_file_layer = TracingFileLayer::new(file_append_layer, "logfile", log_file);
+                field_file_layer_vec.push(log_file_layer);
+                guard_vec.push(worker_guard);
+            }
+            Some(field_file_layer_vec)
+        } else {
+            None
+        };
 
         (
             Some(file_appender_layer),
@@ -249,7 +254,7 @@ pub fn tracing_init(config: &LogConfig) -> Option<Vec<WorkerGuard>> {
         Targets::from_iter(config.target_filters.clone())
     };
 
-    // console_layer放到file_appender_layer和log_file_layer_vec前面, 会影响文件打印的内容.
+    // XXX console_layer放到file_appender_layer和field_file_layer_vec前面, 会影响文件打印的内容.
     Registry::default()
         .with(config.level_filter)
         .with(file_append_layer)
@@ -329,7 +334,7 @@ mod tests {
 
         let _worker_guard_vec = tracing_init(&log_config);
 
-        info!("this is msg 1");
+        info!(a = 100, "this is msg 1");
         info!("this is msg 2");
         info!("this is msg 3");
 
