@@ -44,15 +44,15 @@ fn value_in_record(record: &Record<'_>, field: &str, value: &str) -> bool {
     visitor.matched
 }
 
-pub struct LogFileLayer<T> {
+pub struct TracingFileLayer<T> {
     layer: T,
     field: String,
     value: String,
 }
 
-impl<T> LogFileLayer<T> {
-    pub fn new(layer: T, field: &str, value: &str) -> LogFileLayer<T> {
-        LogFileLayer {
+impl<T> TracingFileLayer<T> {
+    pub fn new(layer: T, field: &str, value: &str) -> TracingFileLayer<T> {
+        TracingFileLayer {
             layer,
             field: field.to_string(),
             value: value.to_string(),
@@ -61,9 +61,9 @@ impl<T> LogFileLayer<T> {
 }
 
 #[derive(Debug)]
-struct LogFileLayerEnabled(String);
+struct TracingFileLayerEnabled(String);
 
-impl<S, T> Layer<S> for LogFileLayer<T>
+impl<S, T> Layer<S> for TracingFileLayer<T>
 where
     T: Layer<S>,
     S: Subscriber + for<'a> LookupSpan<'a>,
@@ -92,7 +92,7 @@ where
             ctx.span(id)
                 .unwrap()
                 .extensions_mut()
-                .insert(LogFileLayerEnabled(self.value.to_string()));
+                .insert(TracingFileLayerEnabled(self.value.to_string()));
         }
         self.layer.on_new_span(attrs, id, ctx)
     }
@@ -112,7 +112,7 @@ where
     fn on_event(&self, event: &tracing::Event<'_>, ctx: Context<'_, S>) {
         let is_on_event = if let Some(span) = ctx.event_span(event) {
             span.scope().from_root().any(|v| {
-                if let Some(enabled) = v.extensions().get::<LogFileLayerEnabled>() {
+                if let Some(enabled) = v.extensions().get::<TracingFileLayerEnabled>() {
                     enabled.0 == self.value
                 } else {
                     false

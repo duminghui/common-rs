@@ -41,7 +41,7 @@ where
 mod tests {
     use serde::Deserialize;
 
-    use crate::utoml::parse_from_file;
+    use crate::toml::parse_from_file;
 
     #[derive(Deserialize, Debug)]
     pub struct Test {

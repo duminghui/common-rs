@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
@@ -14,126 +15,151 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, Registry};
 
-use self::log_file::LogFileLayer;
+use self::tracing_file::TracingFileLayer;
 
-mod log_file;
+mod tracing_file;
 
-pub struct LogConfig {
+pub struct LogConfig<'a> {
     max_files:         usize,
     level_filter:      LevelFilter,
+    target_filters:    Vec<(Cow<'a, str>, LevelFilter)>,
     console_enable:    bool,
     console_line_info: bool,
     console_target:    bool,
+    file_enable:       bool,
+    file_dir:          Cow<'a, Path>,
+    file_name:         Cow<'a, str>,
     file_line_info:    bool,
     file_target:       bool,
-    target_filters:    Vec<(String, LevelFilter)>,
-    log_files:         Vec<String>,
+    field_files:       Vec<Cow<'a, str>>,
 }
 
-impl Default for LogConfig {
+impl Default for LogConfig<'_> {
     fn default() -> Self {
         Self {
             max_files:         9,
             level_filter:      LevelFilter::INFO,
+            target_filters:    Vec::new(),
             console_enable:    true,
             console_line_info: true,
             console_target:    true,
+            file_enable:       false,
+            file_dir:          Default::default(),
+            file_name:         "run.log".into(),
             file_line_info:    true,
             file_target:       true,
-            target_filters:    Vec::new(),
-            log_files:         Vec::new(),
+            field_files:       Vec::new(),
         }
     }
 }
 
-impl LogConfig {
-    #[deprecated(note = "Use LogConfig::default()")]
-    pub fn new(
-        max_files: usize,
-        level_filter: LevelFilter,
-        console_enable: bool,
-        console_line_info: bool,
-        console_target: bool,
-        file_line_info: bool,
-        file_target: bool,
-    ) -> LogConfig {
-        LogConfig {
-            max_files,
-            level_filter,
-            console_enable,
-            console_line_info,
-            console_target,
-            file_line_info,
-            file_target,
-            target_filters: Vec::new(),
-            log_files: Vec::new(),
-        }
-    }
+impl<'a> LogConfig<'a> {
+    // #[deprecated(note = "Use LogConfig::default()")]
+    // pub fn new(
+    //     max_files: usize,
+    //     level_filter: LevelFilter,
+    //     console_enable: bool,
+    //     console_line_info: bool,
+    //     console_target: bool,
+    //     file_enable: bool,
+    //     file_line_info: bool,
+    //     file_target: bool,
+    // ) -> LogConfig {
+    //     LogConfig {
+    //         max_files,
+    //         level_filter,
+    //         console_enable,
+    //         console_line_info,
+    //         console_target,
+    //         file_enable,
+    //         file_line_info,
+    //         file_target,
+    //         target_filters: Vec::new(),
+    //         log_files: Vec::new(),
+    //     }
+    // }
 
-    pub fn with_max_files(self, max_files: usize) -> LogConfig {
+    pub fn with_max_files(self, max_files: usize) -> LogConfig<'a> {
         LogConfig { max_files, ..self }
     }
 
-    pub fn with_level_filter(self, level_filter: LevelFilter) -> LogConfig {
+    pub fn with_level_filter(self, level_filter: LevelFilter) -> LogConfig<'a> {
         LogConfig {
             level_filter,
             ..self
         }
     }
 
-    pub fn with_console_enable(self, console_enable: bool) -> LogConfig {
+    pub fn with_console_enable(self, console_enable: bool) -> LogConfig<'a> {
         LogConfig {
             console_enable,
             ..self
         }
     }
 
-    pub fn with_console_line_info(self, console_line_info: bool) -> LogConfig {
+    pub fn with_console_line_info(self, console_line_info: bool) -> LogConfig<'a> {
         LogConfig {
             console_line_info,
             ..self
         }
     }
 
-    pub fn with_console_target(self, console_target: bool) -> LogConfig {
+    pub fn with_console_target(self, console_target: bool) -> LogConfig<'a> {
         LogConfig {
             console_target,
             ..self
         }
     }
 
-    pub fn with_file_line_info(self, file_line_info: bool) -> LogConfig {
+    pub fn with_file_enable(self, file_enable: bool) -> LogConfig<'a> {
+        LogConfig {
+            file_enable,
+            ..self
+        }
+    }
+
+    pub fn with_file_dir(self, dir: &'a str) -> LogConfig<'a> {
+        LogConfig {
+            file_dir: Cow::Borrowed(Path::new(dir)),
+            ..self
+        }
+    }
+
+    pub fn with_file_name(self, file_name: &'a str) -> LogConfig<'a> {
+        LogConfig {
+            file_name: file_name.into(),
+            ..self
+        }
+    }
+
+    pub fn with_file_line_info(self, file_line_info: bool) -> LogConfig<'a> {
         LogConfig {
             file_line_info,
             ..self
         }
     }
 
-    pub fn with_file_target(self, file_target: bool) -> LogConfig {
+    pub fn with_file_target(self, file_target: bool) -> LogConfig<'a> {
         LogConfig {
             file_target,
             ..self
         }
     }
 
-    pub fn with_log_files(self, log_files: &[String]) -> LogConfig {
+    pub fn with_field_files(self, field_files: &'a [&str]) -> LogConfig<'a> {
         LogConfig {
-            log_files: log_files.to_vec(),
+            field_files: field_files.iter().map(|v| (*v).into()).collect::<Vec<_>>(),
             ..self
         }
     }
 
-    pub fn add_target(&mut self, target: &str) {
+    pub fn add_target(&mut self, target: &'a str) {
         self.target_filters.push((target.into(), self.level_filter));
     }
 }
 
 // linux多线程的环境下, 获取UtcOffset会出错
-pub fn init_tracing(
-    directory: impl AsRef<Path>,
-    file_name: impl AsRef<Path>,
-    config: &LogConfig,
-) -> Vec<WorkerGuard> {
+pub fn tracing_init(config: &LogConfig) -> Option<Vec<WorkerGuard>> {
     // https://time-rs.github.io/book/api/format-description.html
     let time_format =
         format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
@@ -172,7 +198,6 @@ pub fn init_tracing(
     // 不用trace自带的文件生成
     // let file_appender = rolling::daily(directory, file_name);
     //
-    let _ = fs::create_dir_all(&directory);
 
     // let directory = directory.as_ref();
 
@@ -193,26 +218,29 @@ pub fn init_tracing(
     //     .with_timer(timer)
     //     .with_writer(non_blocking_appender);
 
-    let FileAppenderLayer2Result(file_appender_layer, file_worker_guard) =
-        file_appender_layer2(&directory, &file_name, config, timer.clone());
+    let (file_append_layer, field_file_layer_vec, guard_vec) = if config.file_enable {
+        let _ = fs::create_dir_all(config.file_dir.as_ref());
+        let FileAppenderLayerWorkerGuard(file_appender_layer, worker_guard) =
+            file_appender_layer_worker_guard(config.file_name.as_ref(), config, timer.clone());
+        let mut guard_vec = vec![worker_guard];
 
-    let mut guard_vec = vec![file_worker_guard];
+        let mut field_file_layer_vec = vec![];
+        for log_file in config.field_files.iter() {
+            let file_name = format!("{}.log", log_file);
+            let FileAppenderLayerWorkerGuard(file_append_layer, worker_guard) =
+                file_appender_layer_worker_guard(file_name, config, timer.clone());
+            let log_file_layer = TracingFileLayer::new(file_append_layer, "logfile", log_file);
+            field_file_layer_vec.push(log_file_layer);
+            guard_vec.push(worker_guard);
+        }
 
-    let mut log_file_layer_vec = vec![];
-
-    for log_file in config.log_files.iter() {
-        let file_name = format!("{}.log", log_file);
-        let FileAppenderLayer2Result(file_appender_layer, file_worker_guard) =
-            file_appender_layer2(&directory, file_name, config, timer.clone());
-        let log_file_layer = LogFileLayer::new(file_appender_layer, "logfile", log_file);
-        log_file_layer_vec.push(log_file_layer);
-        guard_vec.push(file_worker_guard);
-    }
-
-    let log_file_layer_vec = if !log_file_layer_vec.is_empty() {
-        Some(log_file_layer_vec)
+        (
+            Some(file_appender_layer),
+            Some(field_file_layer_vec),
+            Some(guard_vec),
+        )
     } else {
-        None
+        (None, None, None)
     };
 
     let targets = if config.target_filters.is_empty() {
@@ -224,8 +252,8 @@ pub fn init_tracing(
     // console_layer放到file_appender_layer和log_file_layer_vec前面, 会影响文件打印的内容.
     Registry::default()
         .with(config.level_filter)
-        .with(file_appender_layer)
-        .with(log_file_layer_vec)
+        .with(file_append_layer)
+        .with(field_file_layer_vec)
         .with(console_layer)
         .with(targets)
         // ErrorLayer 可以让 color-eyre 获取到 span 的信息
@@ -235,22 +263,20 @@ pub fn init_tracing(
     guard_vec
 }
 
-struct FileAppenderLayer2Result<S, T>(
+struct FileAppenderLayerWorkerGuard<S, T>(
     Layer<S, DefaultFields, Format<Full, OffsetTime<T>>, NonBlocking>,
     WorkerGuard,
 );
 
-fn file_appender_layer2<P1, P2, S, T>(
-    directory: P1,
-    file_name: P2,
+fn file_appender_layer_worker_guard<P, S, T>(
+    file_name: P,
     config: &LogConfig,
     timer: OffsetTime<T>,
-) -> FileAppenderLayer2Result<S, T>
+) -> FileAppenderLayerWorkerGuard<S, T>
 where
-    P1: AsRef<Path>,
-    P2: AsRef<Path>,
+    P: AsRef<Path>,
 {
-    let directory = directory.as_ref();
+    let directory = config.file_dir.as_ref();
     let file_appender = BasicRollingFileAppender::new(
         directory.join(file_name),
         RollingConditionBasic::new().daily(),
@@ -263,11 +289,11 @@ where
     let file_appender_layer = fmt::layer()
         .with_ansi(false)
         .with_file(config.file_line_info)
-        .with_line_number(config.console_line_info)
+        .with_line_number(config.file_line_info)
         .with_target(config.file_target)
         .with_timer(timer)
         .with_writer(non_blocking_appender);
-    FileAppenderLayer2Result(file_appender_layer, file_worker_guard)
+    FileAppenderLayerWorkerGuard(file_appender_layer, file_worker_guard)
 }
 
 #[cfg(test)]
@@ -277,7 +303,7 @@ mod tests {
     use tracing::level_filters::LevelFilter;
     use tracing::{info, span, Level};
 
-    use super::{init_tracing, LogConfig};
+    use super::{tracing_init, LogConfig};
 
     #[test]
     fn test_path() {
@@ -291,15 +317,17 @@ mod tests {
 
     #[test]
     fn test_log() {
-        let log_files = ["file1", "file2"].map(|v| v.to_string());
+        let field_files = ["file1", "file2"];
 
         let log_config = LogConfig::default()
             .with_level_filter(LevelFilter::DEBUG)
+            .with_file_enable(true)
+            .with_file_dir("./_logs")
             .with_console_line_info(false)
-            .with_log_files(&log_files)
+            .with_field_files(&field_files)
             .with_file_line_info(false);
 
-        let _worker_guard_vec = init_tracing("./_logs", "app.log", &log_config);
+        let _worker_guard_vec = tracing_init(&log_config);
 
         info!("this is msg 1");
         info!("this is msg 2");

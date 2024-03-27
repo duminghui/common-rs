@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.35", optional = true, default-features = false, features = ["std"] }
+dirs = { version = "5.0.1", optional = true }
 # color-eyre = "0.6.2"
 eyre = { version = "0.6.12" }
 # futures = { version = "0.3.28", optional = true, default-features = false, features = ["std"] }
@@ -34,19 +35,20 @@ uuid = { version = "1.8.0", optional = true, default-features = false, features 
 
 [features]
 default = ["all"]
-all = ["cell", "mysqlx_batch", "qh", "sizehmap", "timer", "ulog", "hq", "redis", "utoml", "serde_extend", "human", "running"]
+all = ["cell", "mysqlx-batch", "qh", "sizehmap", "timer", "tracing-init", "hq", "redis", "toml", "serde-extend", "human", "running", "path-plain"]
 cell = []
-mysqlx = ["yaml", "log", "serde", "sqlx", "thiserror", "tokio", "uuid", "futures-util", "itertools", "chrono", "human"]
-mysqlx_batch = ["mysqlx"]
-qh = ["mysqlx_batch", "ymdhms", "futures-util", "thiserror", "tokio", "rust_decimal"]
+mysqlx = ["yaml", "dep:log", "dep:serde", "dep:sqlx", "dep:thiserror", "dep:tokio", "dep:uuid", "dep:futures-util", "dep:itertools", "dep:chrono", "human"]
+mysqlx-batch = ["mysqlx"]
+qh = ["mysqlx-batch", "ymdhms", "dep:futures-util", "dep:thiserror", "dep:tokio", "dep:rust_decimal"]
 sizehmap = []
-timer = ["futures-util", "tokio"]
-ulog = ["rolling-file", "time", "tracing", "tracing-appender", "tracing-error", "tracing-subscriber"]
-yaml = ["serde", "serde_yaml", "thiserror", "log"]
-utoml = ["serde", "toml", "thiserror", "log"]
-ymdhms = ["chrono"]
-hq = ["mysqlx", "ymdhms", "rust_decimal"]
-redis = ["dep:redis", "yaml", "serde"]
-serde_extend = ["chrono", "serde"]
-human = ["number_prefix", "rust_decimal"]
-running = ["sysinfo"]
+timer = ["dep:futures-util", "dep:tokio"]
+tracing-init = ["dep:tracing", "dep:tracing-appender", "dep:tracing-error", "dep:tracing-subscriber", "dep:rolling-file", "dep:time"]
+yaml = ["dep:serde", "dep:serde_yaml", "dep:thiserror", "dep:log"]
+toml = ["dep:serde", "dep:toml", "dep:thiserror", "dep:log"]
+ymdhms = ["dep:chrono"]
+hq = ["mysqlx", "ymdhms", "dep:rust_decimal"]
+redis = ["dep:redis", "yaml", "dep:serde"]
+serde-extend = ["dep:chrono", "dep:serde"]
+human = ["dep:number_prefix", "dep:rust_decimal"]
+running = ["dep:sysinfo"]
+path-plain = ["dep:dirs"]

@@ -10,7 +10,7 @@ use sqlx::{ConnectOptions, Executor, MySqlPool};
 use crate::yaml;
 use crate::yaml::YamlParseError;
 
-#[cfg(feature = "mysqlx_batch")]
+#[cfg(feature = "mysqlx-batch")]
 pub mod batch_exec;
 
 pub mod exec;
