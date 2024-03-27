@@ -23,7 +23,7 @@ pub mod redis;
 pub mod running;
 
 #[cfg(feature = "serde_extend")]
-pub mod serde;
+pub mod serde_extend;
 
 #[cfg(feature = "sizehmap")]
 pub mod sizehmap;
@@ -43,6 +43,7 @@ pub mod yaml;
 #[cfg(feature = "ymdhms")]
 pub mod ymdhms;
 
+pub use eyre;
 pub type AResult<T> = eyre::Result<T>;
 
 #[cfg(test)]

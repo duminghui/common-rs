@@ -34,7 +34,7 @@ uuid = { version = "1.8.0", optional = true, default-features = false, features 
 
 [features]
 default = ["all"]
-all = ["cell", "mysqlx_batch", "qh", "sizehmap", "timer", "ulog", "hq", "redis", "utoml", "serde_extend"]
+all = ["cell", "mysqlx_batch", "qh", "sizehmap", "timer", "ulog", "hq", "redis", "utoml", "serde_extend", "human", "running"]
 cell = []
 mysqlx = ["yaml", "log", "serde", "sqlx", "thiserror", "tokio", "uuid", "futures-util", "itertools", "chrono", "human"]
 mysqlx_batch = ["mysqlx"]
