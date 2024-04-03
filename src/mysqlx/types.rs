@@ -40,8 +40,8 @@ impl Decode<'_, MySql> for VecType<NaiveTime> {
         let value = <&str as Decode<MySql>>::decode(value)?;
         let vec = value
             .split(',')
-            .map(|v| NaiveTime::parse_from_str(v, "%H:%M:%S").unwrap())
-            .collect::<Vec<_>>();
+            .map(|v| NaiveTime::parse_from_str(v, "%H:%M:%S"))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(VecType(vec))
     }
 }

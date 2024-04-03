@@ -1,20 +1,21 @@
+use std::borrow::Cow;
 use std::env;
 use std::path::Path;
 
 use sysinfo::ProcessRefreshKind;
 
 #[cfg(windows)]
-fn name_wrapper(name: &str) -> String {
+fn name_wrapper(name: &str) -> Cow<'_, str> {
     if name.ends_with(".exe") {
-        name.to_string()
+        Cow::Borrowed(name)
     } else {
-        format!("{}.exe", name)
+        Cow::Owned(format!("{}.exe", name))
     }
 }
 
 #[cfg(not(windows))]
-fn name_wrapper(name: &str) -> String {
-    name.to_string()
+fn name_wrapper(name: &str) -> Cow<'_, str> {
+    Cow::Borrowed(name)
 }
 
 fn porcesses_by_name_count(name: &str) -> usize {
@@ -29,10 +30,10 @@ pub fn app(name: &str) -> bool {
     porcesses_by_name_count(name) > 0
 }
 
-pub fn apps(names: &[&str]) -> Option<String> {
+pub fn apps<'a>(names: &'a [&'a str]) -> Option<Cow<'a, str>> {
     for name in names {
         if app(name) {
-            return Some(name.to_string());
+            return Some(Cow::Borrowed(name));
         }
     }
     None

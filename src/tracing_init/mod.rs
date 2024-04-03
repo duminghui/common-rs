@@ -19,7 +19,7 @@ use self::tracing_file::TracingFileLayer;
 
 mod tracing_file;
 
-pub struct LogConfig<'a> {
+pub struct TracingConfig<'a> {
     max_files:         usize,
     level_filter:      LevelFilter,
     target_filters:    Vec<(Cow<'a, str>, LevelFilter)>,
@@ -34,7 +34,7 @@ pub struct LogConfig<'a> {
     field_files:       Vec<Cow<'a, str>>,
 }
 
-impl Default for LogConfig<'_> {
+impl Default for TracingConfig<'_> {
     fn default() -> Self {
         Self {
             max_files:         9,
@@ -53,19 +53,11 @@ impl Default for LogConfig<'_> {
     }
 }
 
-impl<'a> LogConfig<'a> {
-    // #[deprecated(note = "Use LogConfig::default()")]
+impl<'a> TracingConfig<'a> {
+    // #[deprecated(note = "Use TracingConfig::default()")]
     // pub fn new(
-    //     max_files: usize,
-    //     level_filter: LevelFilter,
-    //     console_enable: bool,
-    //     console_line_info: bool,
-    //     console_target: bool,
-    //     file_enable: bool,
-    //     file_line_info: bool,
-    //     file_target: bool,
-    // ) -> LogConfig {
-    //     LogConfig {
+    // ) -> TracingConfig {
+    //     TracingConfig {
     //         max_files,
     //         level_filter,
     //         console_enable,
@@ -79,75 +71,75 @@ impl<'a> LogConfig<'a> {
     //     }
     // }
 
-    pub fn with_max_files(self, max_files: usize) -> LogConfig<'a> {
-        LogConfig { max_files, ..self }
+    pub fn with_max_files(self, max_files: usize) -> TracingConfig<'a> {
+        TracingConfig { max_files, ..self }
     }
 
-    pub fn with_level_filter(self, level_filter: LevelFilter) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_level_filter(self, level_filter: LevelFilter) -> TracingConfig<'a> {
+        TracingConfig {
             level_filter,
             ..self
         }
     }
 
-    pub fn with_console_enable(self, console_enable: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_console_enable(self, console_enable: bool) -> TracingConfig<'a> {
+        TracingConfig {
             console_enable,
             ..self
         }
     }
 
-    pub fn with_console_line_info(self, console_line_info: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_console_line_info(self, console_line_info: bool) -> TracingConfig<'a> {
+        TracingConfig {
             console_line_info,
             ..self
         }
     }
 
-    pub fn with_console_target(self, console_target: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_console_target(self, console_target: bool) -> TracingConfig<'a> {
+        TracingConfig {
             console_target,
             ..self
         }
     }
 
-    pub fn with_file_enable(self, file_enable: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_file_enable(self, file_enable: bool) -> TracingConfig<'a> {
+        TracingConfig {
             file_enable,
             ..self
         }
     }
 
-    pub fn with_file_dir(self, dir: &'a str) -> LogConfig<'a> {
-        LogConfig {
-            file_dir: Cow::Borrowed(Path::new(dir)),
+    pub fn with_file_dir<P: AsRef<Path>>(self, dir: P) -> TracingConfig<'a> {
+        TracingConfig {
+            file_dir: Cow::from(dir.as_ref().to_owned()),
             ..self
         }
     }
 
-    pub fn with_file_name(self, file_name: &'a str) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_file_name(self, file_name: &'a str) -> TracingConfig<'a> {
+        TracingConfig {
             file_name: file_name.into(),
             ..self
         }
     }
 
-    pub fn with_file_line_info(self, file_line_info: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_file_line_info(self, file_line_info: bool) -> TracingConfig<'a> {
+        TracingConfig {
             file_line_info,
             ..self
         }
     }
 
-    pub fn with_file_target(self, file_target: bool) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_file_target(self, file_target: bool) -> TracingConfig<'a> {
+        TracingConfig {
             file_target,
             ..self
         }
     }
 
-    pub fn with_field_files(self, field_files: &'a [&str]) -> LogConfig<'a> {
-        LogConfig {
+    pub fn with_field_files(self, field_files: &'a [&str]) -> TracingConfig<'a> {
+        TracingConfig {
             field_files: field_files.iter().map(|v| (*v).into()).collect::<Vec<_>>(),
             ..self
         }
@@ -159,7 +151,7 @@ impl<'a> LogConfig<'a> {
 }
 
 // linux多线程的环境下, 获取UtcOffset会出错
-pub fn tracing_init(config: &LogConfig) -> Option<Vec<WorkerGuard>> {
+pub fn tracing_init(config: &TracingConfig) -> Option<Vec<WorkerGuard>> {
     // https://time-rs.github.io/book/api/format-description.html
     let time_format =
         format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
@@ -275,7 +267,7 @@ struct FileAppenderLayerWorkerGuard<S, T>(
 
 fn file_appender_layer_worker_guard<P, S, T>(
     file_name: P,
-    config: &LogConfig,
+    config: &TracingConfig,
     timer: OffsetTime<T>,
 ) -> FileAppenderLayerWorkerGuard<S, T>
 where
@@ -308,7 +300,7 @@ mod tests {
     use tracing::level_filters::LevelFilter;
     use tracing::{info, span, Level};
 
-    use super::{tracing_init, LogConfig};
+    use super::{tracing_init, TracingConfig};
 
     #[test]
     fn test_path() {
@@ -324,7 +316,7 @@ mod tests {
     fn test_log() {
         let field_files = ["file1", "file2"];
 
-        let log_config = LogConfig::default()
+        let log_config = TracingConfig::default()
             .with_level_filter(LevelFilter::DEBUG)
             .with_file_enable(true)
             .with_file_dir("./_logs")
