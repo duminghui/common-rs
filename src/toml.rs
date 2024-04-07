@@ -28,7 +28,6 @@ where
 pub fn parse_from_file<'de, P, R>(path: P) -> Result<R, TomlParseError>
 where
     P: AsRef<Path>,
-    P: std::fmt::Debug,
     // R: DeserializeOwned,
     R: Deserialize<'de>,
 {

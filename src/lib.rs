@@ -20,6 +20,8 @@ pub mod running;
 pub mod serde_extend;
 #[cfg(feature = "sizehmap")]
 pub mod sizehmap;
+#[cfg(feature = "sql")]
+pub mod sql;
 #[cfg(feature = "timer")]
 pub mod timer;
 #[cfg(feature = "toml")]

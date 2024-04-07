@@ -29,3 +29,20 @@ pub mod opt_str {
         }
     }
 }
+
+pub mod vec_vec_str {
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<String>>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = Vec::<String>::deserialize(deserializer)?;
+        if s.is_empty() {
+            return Ok(Vec::new());
+        }
+        Ok(s.iter()
+            .map(|v| v.split(',').map(|v| v.to_string()).collect())
+            .collect())
+    }
+}

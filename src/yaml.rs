@@ -20,10 +20,10 @@ pub enum YamlParseError {
 pub fn parse_from_file<'de, P, R>(path: P) -> Result<R, YamlParseError>
 where
     P: AsRef<Path>,
-    P: std::fmt::Debug,
     // R: DeserializeOwned,
     R: Deserialize<'de>,
 {
+    let path = path.as_ref();
     let path = path.plain()?;
     let file_content = fs::read_to_string(&path);
     if let Err(err) = file_content {
