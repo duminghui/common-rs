@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, OnceLock, PoisonError, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -63,15 +63,13 @@ pub enum PoolConnError {
 
     #[error(r#"db connect "{0}" not exists!"#)]
     KeyNotExist(String),
+    // #[error("{0}")]
+    // Sqlx(#[from] sqlx::Error),
+    // #[error("init err when read: {0}")]
+    // InitLoclRead(#[from] PoisonError<RwLockReadGuard<'static, MySqlPools>>),
 
-    #[error("{0}")]
-    Sqlx(#[from] sqlx::Error),
-
-    #[error("init err when read: {0}")]
-    InitLoclRead(#[from] PoisonError<RwLockReadGuard<'static, MySqlPools>>),
-
-    #[error("init err when write: {0}")]
-    InitLockWrite(#[from] PoisonError<RwLockWriteGuard<'static, MySqlPools>>),
+    // #[error("init err when write: {0}")]
+    // InitLockWrite(#[from] PoisonError<RwLockWriteGuard<'static, MySqlPools>>),
 }
 
 fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {

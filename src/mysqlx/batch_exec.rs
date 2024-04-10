@@ -200,11 +200,11 @@ impl BatchExec {
     }
 
     pub async fn execute_single(
-        pool: Arc<MySqlPool>,
+        pool: &MySqlPool,
         sql_entity: SqlEntity,
     ) -> std::result::Result<(), sqlx::Error> {
         sqlx::query_with(&sql_entity.sql, sql_entity.args)
-            .execute(pool.as_ref())
+            .execute(pool)
             .await?;
         Ok(())
     }

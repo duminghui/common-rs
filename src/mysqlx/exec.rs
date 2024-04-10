@@ -1,10 +1,8 @@
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use indicatif::HumanCount;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Executor, MySqlPool};
-
-use crate::human::orignal::HumanCount;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -28,17 +26,16 @@ impl std::fmt::Display for ExecInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{:>9.3?}] Rows affected:{:6}",
+            "(Rows affected:{:>9}[{:>9.3?}])",
+            HumanCount(self.rows_affected).to_string(),
             self.elapsed,
-            HumanCount(self.rows_affected),
         )
     }
 }
 
-pub async fn exec_sql<'a>(pool: Arc<MySqlPool>, sql: &str) -> Result<ExecInfo, ExecError> {
+pub async fn exec_sql<'a>(pool: &MySqlPool, sql: &str) -> Result<ExecInfo, ExecError> {
     let start = Instant::now();
     let r = pool
-        .as_ref()
         .execute(sql)
         .await
         .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
@@ -50,13 +47,13 @@ pub async fn exec_sql<'a>(pool: Arc<MySqlPool>, sql: &str) -> Result<ExecInfo, E
 }
 
 pub async fn exec_sql_args(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     sql: &str,
     args: MySqlArguments,
 ) -> Result<ExecInfo, ExecError> {
     let start = Instant::now();
     let r = sqlx::query_with(sql, args)
-        .execute(&*pool)
+        .execute(pool)
         .await
         .map_err(|e| ExecError::Sqlx(sql.to_string(), e))?;
     Ok(ExecInfo {
@@ -68,7 +65,7 @@ pub async fn exec_sql_args(
 /// charset: utf8mb4
 /// collation: utf8mb4_general_ci
 pub async fn create_db(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     db_name: &str,
     charset: &str,
     collation: &str,

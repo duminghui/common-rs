@@ -1,5 +1,7 @@
 #[cfg(feature = "cell")]
 pub mod cell;
+#[cfg(feature = "file")]
+pub mod file;
 #[cfg(feature = "hq")]
 pub mod hq;
 #[cfg(feature = "human")]
@@ -10,6 +12,8 @@ pub mod mysqlx;
 mod mysqlx_test_pool;
 #[cfg(feature = "path-plain")]
 pub mod path_plain;
+#[cfg(feature = "progress-bar")]
+pub mod progress_bar;
 #[cfg(feature = "qh")]
 pub mod qh;
 #[cfg(feature = "redis")]
@@ -20,8 +24,8 @@ pub mod running;
 pub mod serde_extend;
 #[cfg(feature = "sizehmap")]
 pub mod sizehmap;
-#[cfg(feature = "sql")]
-pub mod sql;
+#[cfg(feature = "sql-loader")]
+pub mod sql_loader;
 #[cfg(feature = "timer")]
 pub mod timer;
 #[cfg(feature = "toml")]

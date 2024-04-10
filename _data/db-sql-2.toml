@@ -1,4 +1,16 @@
-database = ["tmp1", "tmp2", "gp_swindex"]
+[[database]]
+name = "tmp4"
+charset = "utf8"
+collation = "utf8_general_ci"
+
+[[database]]
+name = "tmp5"
+charset = "utf8"
+collation = "utf8_general_ci"
+
+[[database]]
+name = "tmp6"
+
 [[table]]
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-1"

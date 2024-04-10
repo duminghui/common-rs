@@ -1,4 +1,19 @@
-database = ["tmp1", "tmp2", "gp_swindex"]
+[[database]]
+name = "tmp1"
+charset = "utf8"
+collation = "utf8_general_ci"
+
+[[database]]
+name = "tmp2"
+charset = "utf8"
+collation = "utf8_general_ci"
+
+[[database]]
+name = "tmp3"
+charset = "utf8"
+collation = "utf8_general_ci"
+
+
 [[table]]
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-3"
@@ -10,7 +25,6 @@ person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
 brithday = { type = "int(8)", not-null = true, default = "0", comment = "生日" }
 create-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
 update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", on-update = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
-ttt = { type = "VARCHAR(60) NOT NULL DEFAULT '0' ON UPDATE CURRENT_TIMESTAMP(6) COMMENT=''" }
 
 [[table]]
 tbl-database = "gp-swindex"
@@ -23,3 +37,39 @@ person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
 brithday = { type = "int(8)", not-null = true, default = "0", comment = "生日" }
 create-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
 update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", on-update = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
+
+[[table]]
+tbl-is-template = true
+tbl-name = "tbl-tmp-tmpl"
+tbl-private-key = ["person-id"]
+tbl-index = ["person-id-2"]
+person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
+person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
+person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
+brithday = { type = "int(8)", not-null = true, default = "0", comment = "生日" }
+create-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
+update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMESTAMP(6)", on-update = "CURRENT_TIMESTAMP(6)", comment = "更新时间" }
+
+[[load-data-infile]]
+ldi-name = "ldi-1"
+ldi-columns-terminated = ","
+ldi-ignore-rows = 0
+ldi-column-count = 10
+0 = "code"
+1 = "xxx"
+2 = "xxxx1"
+3 = "xxxx2"
+
+[[load-data-infile]]
+ldi-name = "ldi-2"
+0 = "code"
+1 = "xxx"
+2 = "xxxx1"
+3 = "xxxx2-xxx"
+
+[[load-data-infile]]
+ldi-name = "ldi-3"
+ldi-local = true
+ldi-column-count = 12
+0 = "tmp"
+1 = "xxx-xxx"

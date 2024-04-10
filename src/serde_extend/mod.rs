@@ -1,4 +1,4 @@
 pub mod chrono;
-pub mod cow_path;
 pub mod int;
+pub mod path_plain;
 pub mod string;

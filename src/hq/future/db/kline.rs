@@ -1,5 +1,4 @@
 use std::fmt;
-use std::sync::Arc;
 
 use chrono::{NaiveDate, NaiveDateTime};
 use futures_util::TryStreamExt;
@@ -17,7 +16,7 @@ pub struct KLineTable;
 /// 创建数据库表
 impl KLineTable {
     pub async fn create_table<'a>(
-        pool: Arc<MySqlPool>,
+        pool: &MySqlPool,
         db_name: &str,
         tbl_name: &str,
     ) -> Result<TableExecInfo, ExecError> {

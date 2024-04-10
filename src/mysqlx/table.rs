@@ -19,7 +19,6 @@
 // }
 
 use std::cmp::max;
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{StreamExt, TryStreamExt};
@@ -37,11 +36,11 @@ pub fn table_name(db_name: &str, tbl_name: &str) -> String {
     }
 }
 
-pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<String>, sqlx::Error> {
+pub async fn show_tables(pool: &MySqlPool, db_name: &str) -> Result<Vec<String>, sqlx::Error> {
     let sql = format!("SHOW TABLES FROM {}", db_name);
 
     let tables = sqlx::query_as::<_, (String,)>(&sql)
-        .fetch(&*pool)
+        .fetch(pool)
         .map(|v| v.map(|v| v.0))
         .try_collect::<Vec<String>>()
         .await?;
@@ -51,7 +50,7 @@ pub async fn show_tables(pool: Arc<MySqlPool>, db_name: &str) -> Result<Vec<Stri
 
 // TODO 待优化
 pub async fn table_index_columns(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     db_name: &str,
     tbl_name: &str,
 ) -> Result<Vec<String>, ExecError> {
@@ -61,7 +60,7 @@ pub async fn table_index_columns(
     args.add(tbl_name);
 
     let column_vec = sqlx::query_as_with::<_, (String,), _>(sql, args)
-        .fetch(&*pool)
+        .fetch(pool)
         .map_ok(|v| v.0)
         .try_collect::<Vec<_>>()
         .await
@@ -70,7 +69,7 @@ pub async fn table_index_columns(
 }
 
 pub async fn column_idx_add(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     db_name: &str,
     tbl_name: &str,
     indexs: &[(String, String)],
@@ -90,12 +89,12 @@ pub async fn column_idx_add(
 }
 
 pub async fn column_indexs_not_exist_add(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     db_name: &str,
     tbl_name: &str,
     indexs: &[(String, String)],
 ) -> Result<ExecInfo, ExecError> {
-    let tbl_index_columns = table_index_columns(pool.clone(), db_name, tbl_name).await?;
+    let tbl_index_columns = table_index_columns(pool, db_name, tbl_name).await?;
 
     let new_indexs = indexs
         .iter()
@@ -231,7 +230,7 @@ impl TableCreator {
         self
     }
 
-    pub async fn create(&self, pool: Arc<MySqlPool>) -> Result<TableExecInfo, ExecError> {
+    pub async fn create(&self, pool: &MySqlPool) -> Result<TableExecInfo, ExecError> {
         let sql = self.to_string();
         let exec_info = exec_sql(pool, &sql).await?;
         Ok(TableExecInfo {
@@ -259,7 +258,7 @@ impl std::fmt::Display for TableExecInfo {
 //     PRIMARY KEY (`file`, `file2`)
 //   ) ENGINE=InnoDB
 pub async fn create_table(
-    pool: Arc<MySqlPool>,
+    pool: &MySqlPool,
     sql_template: &str,
     db_name: &str,
     tbl_name: &str,
@@ -309,7 +308,7 @@ mod tests {
     async fn test_create_table() {
         init_test_mysql_pools();
         let tb = table_creator();
-        let r = tb.create(MySqlPools::pool()).await;
+        let r = tb.create(MySqlPools::pool().as_ref()).await;
         if let Err(err) = r {
             println!("{}", err);
             return;
