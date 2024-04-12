@@ -114,7 +114,7 @@ impl BatchExec {
 
     pub fn add(&mut self, mut entity: SqlEntity) {
         if entity.key.is_empty() {
-            entity.key = Uuid::new_v4().to_string();
+            entity.key = Uuid::now_v7().to_string();
         }
 
         self.entity_idx += 1;
@@ -125,8 +125,6 @@ impl BatchExec {
     }
 
     async fn sorted_entity_vec(&mut self) -> Vec<SqlEntity> {
-        let lock = self.lock.clone();
-        let lock = lock.lock().await;
         let mut entity_vec = self
             .entity_map
             .values()
@@ -137,11 +135,12 @@ impl BatchExec {
         self.entity_idx = 0;
         self.entity_map.clear();
 
-        drop(lock);
         entity_vec
     }
 
     async fn execute(&mut self, exec_threshold: u16) -> Result {
+        let lock = self.lock.clone();
+        let lock = lock.lock().await;
         let start = Instant::now();
         let mut exec_info = BatchExecInfo::default();
 
@@ -151,6 +150,7 @@ impl BatchExec {
         exec_info.entity_count = entity_len;
 
         if entity_len == 0 || entity_len < exec_threshold {
+            drop(lock);
             return Ok(exec_info);
         }
 
@@ -159,9 +159,6 @@ impl BatchExec {
         let sql_entity_vec = self.sorted_entity_vec().await;
 
         let mut transaction = pool.begin().await?;
-
-        let lock = self.lock.clone();
-        let lock = lock.lock().await;
 
         let mut rows_affected = 0;
         for SqlEntity { sql, args, .. } in sql_entity_vec {
@@ -173,14 +170,12 @@ impl BatchExec {
                     rows_affected += result.rows_affected();
                 },
                 Err(err) => {
-                    return Err(BatchExecError::Query {
-                        sql: sql.to_owned(),
-                        err,
-                    });
+                    return Err(BatchExecError::Query { sql, err });
                 },
             }
         }
         transaction.commit().await?;
+
         drop(lock);
 
         exec_info.is_exec = true;

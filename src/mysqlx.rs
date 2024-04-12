@@ -12,6 +12,8 @@ use crate::yaml::YamlParseError;
 
 #[cfg(feature = "mysqlx-batch")]
 pub mod batch_exec;
+#[cfg(feature = "mysqlx-batch")]
+pub mod batch_exec_merger;
 
 pub mod exec;
 pub mod sql_builder;

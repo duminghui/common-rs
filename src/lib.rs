@@ -1,5 +1,6 @@
 #[cfg(feature = "cell")]
 pub mod cell;
+pub mod eyre_ext;
 #[cfg(feature = "file")]
 pub mod file;
 #[cfg(feature = "hq")]

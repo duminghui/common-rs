@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Arguments, Encode, MySql, Type};
 
@@ -91,7 +92,7 @@ impl<'a> InsertSqlArgsBuilder<'a> {
         let sql = format!(
             "INSERT INTO {}({}) VALUES ({})",
             self.table_name,
-            self.fields.join(","),
+            self.fields.iter().map(|v| format!("`{}`", v)).join(","),
             self.placeholders.join(",")
         );
         (sql, self.args)
@@ -101,7 +102,7 @@ impl<'a> InsertSqlArgsBuilder<'a> {
         let sql = format!(
             "REPLACE INTO {}({}) VALUES ({})",
             self.table_name,
-            self.fields.join(","),
+            self.fields.iter().map(|v| format!("`{}`", v)).join(","),
             self.placeholders.join(",")
         );
         (sql, self.args)
