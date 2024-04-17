@@ -2,3 +2,5 @@
 /Cargo.lock
 /_test.toml
 /_logs
+/_data/yaml-write.yaml
+/_data/yaml-indexmap.yaml

@@ -16,10 +16,10 @@ pub struct BatchExecMerger {
 }
 
 impl BatchExecMerger {
-    pub async fn start_store_thread(pool: Arc<MySqlPool>, threshold: u16, tick_millis: u64) {
+    pub fn start_store_thread(pool: Arc<MySqlPool>, threshold: u16, tick_millis: u64) {
         let (sender, rx) = async_channel::unbounded::<SqlEntity>();
         tokio::spawn(async move {
-            info!("[BatchExecHelper] Thrad start...");
+            info!("[BatchExecMerger] Thrad start...");
             let mut interval = tokio::time::interval(Duration::from_millis(tick_millis));
             let mut batch_exec = BatchExec::new(pool, threshold);
             loop {
@@ -28,22 +28,22 @@ impl BatchExecMerger {
                         batch_exec.add(entity);
                         let exec_info = batch_exec.execute_threshold().await;
                         if let Err(err) = exec_info {
-                            error!("[BatchExecHelper] err: {}", err);
+                            error!("[BatchExecMerger] err: {}", err);
                         }else {
                             let exec_info = exec_info.unwrap();
                             if exec_info.is_exec() {
-                                info!("[BatchExecHelper] {}", exec_info);
+                                info!("[BatchExecMerger] {}", exec_info);
                             }
                         }
                     }
                     _ =  interval.tick() => {
                         let exec_info = batch_exec.execute_all().await;
                         if let Err(err) = exec_info {
-                            error!("[BatchExecHelper] err: {}", err);
+                            error!("[BatchExecMerger] err: {}", err);
                         }else {
                             let exec_info = exec_info.unwrap();
                             if exec_info.is_exec() {
-                                info!("[BatchExecHelper] {}", exec_info);
+                                info!("[BatchExecMerger] {}", exec_info);
                             }
                         }
                     }
@@ -51,11 +51,11 @@ impl BatchExecMerger {
                 }
             }
 
-            error!("[BatchExecHelper] !!!!!! Thread End !!!!!!")
+            error!("[BatchExecMerger] !!!!!! Thread End !!!!!!")
         });
 
-        let helper = BatchExecMerger { sender };
-        MERGER.set(helper).unwrap();
+        let merger = BatchExecMerger { sender };
+        MERGER.set(merger).unwrap();
     }
 
     pub async fn add_sql_entity(entity: SqlEntity) -> AResult<()> {

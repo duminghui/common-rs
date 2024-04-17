@@ -8,7 +8,7 @@ use redis::{
 };
 use serde::Deserialize;
 
-use crate::yaml::{parse_from_file, YamlParseError};
+use crate::yaml::{parse_from_file, YamlError};
 
 #[derive(Debug, Deserialize, Clone)]
 struct RedisConnInfo {
@@ -41,7 +41,7 @@ impl IntoConnectionInfo for RedisConnInfo {
 
 fn conn_config_from_file(
     filepath: impl AsRef<Path> + std::fmt::Debug,
-) -> Result<HashMap<String, RedisConnInfo>, YamlParseError> {
+) -> Result<HashMap<String, RedisConnInfo>, YamlError> {
     // let config_hmap = yaml::parse_from_file::<_, HashMap<String, ConnectConfig>>(filepath)?;
     // Ok(config_hmap)
     parse_from_file(filepath)
@@ -50,7 +50,7 @@ fn conn_config_from_file(
 #[derive(Debug, thiserror::Error)]
 pub enum RedisConnError {
     #[error("{0}")]
-    YamlParseError(#[from] YamlParseError),
+    YamlParseError(#[from] YamlError),
 
     // #[error(r#"redis key "{0}" not exists!"#)]
     // KeyNotExist(String),

@@ -43,10 +43,12 @@ where
 
     let data_len = data_vec.len();
 
+    info!("==================");
     info!("{} [{}] 开始", par_flag, HumanCount(data_len as u64));
 
     if data_len == 0 {
-        info!("结束: {} [{}] {:.3?}", par_flag, data_len, start.elapsed());
+        info!("{} [{}] 结束 {:.3?}", par_flag, data_len, start.elapsed());
+        info!("==================");
         return Ok(Vec::new());
     }
 

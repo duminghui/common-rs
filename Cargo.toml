@@ -1,13 +1,13 @@
 [package]
 name = "common-rs"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-channel = { version = "2.2.0", optional = true }
-chrono = { version = "0.4.37", optional = true, default-features = false, features = ["std"] }
+async-channel = { version = "2.2.1", optional = true }
+chrono = { version = "0.4.38", optional = true, default-features = false, features = ["std"] }
 dirs = { version = "5.0.1", optional = true }
 # color-eyre = "0.6.2"
 eyre = { version = "0.6.12" }
@@ -21,7 +21,7 @@ rand = { version = "0.8.5", optional = true }
 redis = { version = "0.25.3", default-features = false, optional = true }
 rolling-file = { version = "0.2.0", optional = true, default-features = false }
 rust_decimal = { version = "1.35.0", optional = true, default-features = false }
-serde = { version = "1.0.197", optional = true, default-features = false, features = ["derive", "std"] }
+serde = { version = "1.0.198", optional = true, default-features = false, features = ["derive", "std"] }
 serde_yaml = { version = "0.9.34", optional = true, default-features = false }
 sqlx = { version = "0.7.4", optional = true, default-features = false, features = ["macros", "runtime-tokio-rustls", "mysql", "chrono", "rust_decimal"] }
 sysinfo = { version = "0.30.10", optional = true }
@@ -62,3 +62,4 @@ progress-bar = ["dep:async-channel", "dep:indicatif", "dep:log", "dep:rand", "de
 
 [dev-dependencies]
 tokio-stream = "0.1.15"
+indexmap = { version = "2.2.6", features = ["serde"] }

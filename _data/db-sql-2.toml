@@ -15,7 +15,7 @@ name = "tmp6"
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-1"
 tbl-private-key = ["person-id"]
-tbl-index = ["person-id-2"]
+tbl-index = [["person-id-2"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
@@ -28,7 +28,7 @@ ttt = { type = "VARCHAR(60) NOT NULL DEFAULT '0' ON UPDATE CURRENT_TIMESTAMP(6) 
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-2"
 tbl-private-key = ["person-id"]
-tbl-index = ["person-id-2"]
+tbl-index = [["person-id-2"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }

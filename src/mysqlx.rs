@@ -8,7 +8,7 @@ use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::{ConnectOptions, Executor, MySqlPool};
 
 use crate::yaml;
-use crate::yaml::YamlParseError;
+use crate::yaml::YamlError;
 
 #[cfg(feature = "mysqlx-batch")]
 pub mod batch_exec;
@@ -54,14 +54,14 @@ struct PoolConfig {
 
 fn conn_config_from_file(
     filepath: impl AsRef<Path> + std::fmt::Debug,
-) -> Result<HashMap<String, PoolConfig>, YamlParseError> {
+) -> Result<HashMap<String, PoolConfig>, YamlError> {
     yaml::parse_from_file(filepath)
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum PoolConnError {
     #[error("{0}")]
-    YamlParseError(#[from] YamlParseError),
+    YamlParseError(#[from] YamlError),
 
     #[error(r#"db connect "{0}" not exists!"#)]
     KeyNotExist(String),

@@ -1,6 +1,32 @@
+use std::fmt::Write;
+
 use itertools::Itertools;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Arguments, Encode, MySql, Type};
+
+use super::table::table_name;
+
+pub trait SelectSqlExt {
+    fn sql(&self, db_name: &str, tbl_name: &str, append: &str) -> String;
+}
+
+impl<T: std::fmt::Display> SelectSqlExt for [T] {
+    fn sql(&self, db_name: &str, tbl_name: &str, append: &str) -> String {
+        let tbl_name = table_name(db_name, tbl_name);
+        let mut sql = String::new();
+        write!(
+            sql,
+            "SELECT {} FROM {}",
+            self.iter().map(|v| format!("`{}`", v)).join(","),
+            tbl_name
+        )
+        .unwrap();
+        if !append.is_empty() {
+            write!(sql, " {}", append).unwrap();
+        }
+        sql
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct UpdateFieldArgsBuilder {
@@ -37,18 +63,19 @@ impl UpdateFieldArgsBuilder {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct InsertSqlArgsBuilder<'a> {
-    table_name:   &'a str,
+    tbl_name:     String,
     fields:       Vec<&'a str>,
     placeholders: Vec<&'a str>,
     args:         MySqlArguments,
 }
 
 impl<'a> InsertSqlArgsBuilder<'a> {
-    pub fn new(table_name: &str) -> InsertSqlArgsBuilder {
+    pub fn new(db_name: &str, tbl_name: &str) -> InsertSqlArgsBuilder<'a> {
+        let tbl_name = table_name(db_name, tbl_name);
         InsertSqlArgsBuilder {
-            table_name,
+            tbl_name,
             fields: Default::default(),
             placeholders: Default::default(),
             args: Default::default(),
@@ -91,7 +118,7 @@ impl<'a> InsertSqlArgsBuilder<'a> {
     pub fn insert_sql_args(self) -> (String, MySqlArguments) {
         let sql = format!(
             "INSERT INTO {}({}) VALUES ({})",
-            self.table_name,
+            self.tbl_name,
             self.fields.iter().map(|v| format!("`{}`", v)).join(","),
             self.placeholders.join(",")
         );
@@ -101,7 +128,7 @@ impl<'a> InsertSqlArgsBuilder<'a> {
     pub fn replace_sql_args(self) -> (String, MySqlArguments) {
         let sql = format!(
             "REPLACE INTO {}({}) VALUES ({})",
-            self.table_name,
+            self.tbl_name,
             self.fields.iter().map(|v| format!("`{}`", v)).join(","),
             self.placeholders.join(",")
         );
@@ -141,7 +168,7 @@ impl WhereArgsBuilder {
         T: Encode<'q, MySql> + Type<MySql>,
         T: 'q + Send,
     {
-        self.fields.push(format!("{}=?", k));
+        self.fields.push(format!("`{}`=?", k));
         self.args.add(v);
     }
 
@@ -150,7 +177,7 @@ impl WhereArgsBuilder {
         T: Encode<'q, MySql> + Type<MySql> + Sync + Send,
     {
         if let Some(v) = v {
-            self.fields.push(format!("{}=?", k));
+            self.fields.push(format!("`{}`=?", k));
             self.args.add(v);
         }
     }
@@ -164,5 +191,16 @@ impl WhereArgsBuilder {
                 self.args.clone(),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SelectSqlExt;
+
+    #[test]
+    fn test_1() {
+        let sql = ["1", "2", "3"].sql("aa", "bb", "WHERE a=?");
+        println!("{}", sql);
     }
 }

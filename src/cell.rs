@@ -1,6 +1,5 @@
 //! Copy pasted from std::cell::SyncUnsafeCell
 use std::cell::UnsafeCell;
-use std::ops::{Deref, DerefMut};
 
 /// [`UnsafeCell`], but [`Sync`].
 ///
@@ -59,16 +58,16 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
     ///
     /// This call borrows the `SyncUnsafeCell` mutably (at compile-time) which
     /// guarantees that we possess the only reference.
-    #[inline]
-    pub fn get_mut(&mut self) -> &mut T {
-        self.value.get_mut()
-    }
-
-    // #[allow(clippy::mut_from_ref)]
     // #[inline]
-    // pub fn get_mut(&self) -> &mut T {
-    //     unsafe { &mut *self.get() }
+    // pub fn get_mut(&mut self) -> &mut T {
+    //     self.value.get_mut()
     // }
+
+    #[allow(clippy::mut_from_ref)]
+    #[inline]
+    pub fn get_mut(&self) -> &mut T {
+        unsafe { &mut *self.get() }
+    }
 
     /// Gets a mutable pointer to the wrapped value.
     ///
@@ -98,19 +97,19 @@ impl<T> From<T> for SyncUnsafeCell<T> {
     }
 }
 
-impl<T> Deref for SyncUnsafeCell<T> {
-    type Target = T;
+// impl<T> Deref for SyncUnsafeCell<T> {
+//     type Target = T;
 
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.get() }
-    }
-}
+//     fn deref(&self) -> &Self::Target {
+//         unsafe { &*self.get() }
+//     }
+// }
 
-impl<T> DerefMut for SyncUnsafeCell<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_mut()
-    }
-}
+// impl<T> DerefMut for SyncUnsafeCell<T> {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         self.get_mut()
+//     }
+// }
 
 // #[unstable(feature = "coerce_unsized", issue = "18598")]
 //#[unstable(feature = "sync_unsafe_cell", issue = "95439")]

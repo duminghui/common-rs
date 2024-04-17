@@ -28,8 +28,13 @@ impl std::fmt::Display for SqlEntity {
 
 impl SqlEntity {
     pub fn new(key: &str, sql: &str, args: MySqlArguments) -> SqlEntity {
+        let key = if key.is_empty() {
+            Uuid::now_v7().to_string()
+        } else {
+            key.to_owned()
+        };
         SqlEntity {
-            key: key.to_owned(),
+            key,
             idx: 0,
             sql: sql.to_owned(),
             args,
@@ -113,10 +118,6 @@ impl BatchExec {
     }
 
     pub fn add(&mut self, mut entity: SqlEntity) {
-        if entity.key.is_empty() {
-            entity.key = Uuid::now_v7().to_string();
-        }
-
         self.entity_idx += 1;
 
         entity.idx = self.entity_idx;
@@ -141,6 +142,7 @@ impl BatchExec {
     async fn execute(&mut self, exec_threshold: u16) -> Result {
         let lock = self.lock.clone();
         let lock = lock.lock().await;
+
         let start = Instant::now();
         let mut exec_info = BatchExecInfo::default();
 
@@ -262,6 +264,12 @@ mod botch_exec_tests {
         let entity = SqlEntity::new("3", sql, args);
         be.add(entity);
 
+        let mut args = MySqlArguments::default();
+        args.add("v-v-5-3");
+        args.add(5i32);
+        let entity = SqlEntity::new("", sql, args);
+        be.add(entity);
+
         // let entity = SqlEntity::new("4", "UPDATE tmp.tbl_tmp SET v_v='ccc'", Default::default());
         // be.add(entity);
 
@@ -280,6 +288,7 @@ mod botch_exec_tests {
 
     #[tokio::test]
     async fn test_sorted_entity_vec() {
+        init_test_mysql_pools();
         let mut be = batch_exec();
         let entity_vec = be.sorted_entity_vec().await;
         println!("# len {:?}", entity_vec.len());

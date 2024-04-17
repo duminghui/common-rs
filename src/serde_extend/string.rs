@@ -14,6 +14,18 @@ pub mod str_to_vec {
     }
 }
 
+pub mod str_lowercase {
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?.to_lowercase();
+        Ok(s)
+    }
+}
+
 pub mod opt_str {
     use serde::{Deserialize, Deserializer};
 

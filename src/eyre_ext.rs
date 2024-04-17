@@ -6,7 +6,7 @@ pub trait EyreExt<T> {
     #[track_caller]
     fn eyre(self) -> Result<T, eyre::Error>;
     #[track_caller]
-    fn erye_message<M>(self, message: M) -> Result<T, eyre::Error>
+    fn eyre_with_msg<M>(self, message: M) -> Result<T, eyre::Error>
     where
         M: fmt::Display;
 }
@@ -22,7 +22,7 @@ where
         }
     }
 
-    fn erye_message<M>(self, message: M) -> Result<T, eyre::Error>
+    fn eyre_with_msg<M>(self, message: M) -> Result<T, eyre::Error>
     where
         M: fmt::Display,
     {
@@ -46,7 +46,7 @@ mod tests {
         println!("{:?}", a.err().unwrap());
 
         let a = None::<String>;
-        let a = a.ok_or("xxx").erye_message("BBBBBBBB");
+        let a = a.ok_or("xxx").eyre_with_msg("BBBBBBBB");
         println!("{:?}", a.err().unwrap());
     }
 }

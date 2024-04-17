@@ -18,7 +18,7 @@ collation = "utf8_general_ci"
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-3"
 tbl-private-key = ["person-id"]
-tbl-index = ["person-id-2,person-id"]
+tbl-index = [["person-id-2", "person-id"], ["person-id-3"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
@@ -30,7 +30,7 @@ update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMEST
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-4"
 tbl-private-key = ["person-id"]
-tbl-index = ["person-id-2"]
+tbl-index = [["person-id-2"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
@@ -42,7 +42,7 @@ update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMEST
 tbl-is-template = true
 tbl-name = "tbl-tmp-tmpl"
 tbl-private-key = ["person-id"]
-tbl-index = ["person-id-2"]
+tbl-index = [["person-id-2"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }
@@ -54,22 +54,27 @@ update-time = { type = "DATETIME(6)", not-null = true, default = "CURRENT_TIMEST
 ldi-name = "ldi-1"
 ldi-columns-terminated = ","
 ldi-ignore-rows = 0
-ldi-column-count = 10
-0 = "code"
-1 = "xxx"
-2 = "xxxx1"
-3 = "xxxx2"
+ldi-file-column-count = 10
+col-0 = "code"
+col-1 = "xxx"
+col-2 = "@dummyxxx"
+col-3 = "xxxx2"
+col-6 = "@var1"
+set-code = "@var1='true'"
+set-code-2 = "@var2='true'"
 
 [[load-data-infile]]
 ldi-name = "ldi-2"
-0 = "code"
-1 = "xxx"
-2 = "xxxx1"
-3 = "xxxx2-xxx"
+col-0 = "code"
+col-1 = "xxx"
+col-2 = "xxxx1"
+col-3 = "xxxx2-xxx"
+col-4 = "@var1"
+col-5 = "@var2"
 
 [[load-data-infile]]
 ldi-name = "ldi-3"
 ldi-local = true
-ldi-column-count = 12
-0 = "tmp"
-1 = "xxx-xxx"
+ldi-file-column-count = 12
+col-0 = "tmp"
+col-1 = "xxx-xxx"

@@ -1,5 +1,6 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Write};
+use std::fmt::Write;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -9,7 +10,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::path_plain::PathPlainExt;
-use crate::serde_extend::string::{opt_str, vec_vec_str};
+use crate::serde_extend::string::opt_str;
 use crate::{toml, AResult};
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -28,12 +29,6 @@ pub struct SqlLoader {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 struct LoadDataInfile {
-    #[serde(skip)]
-    file:               String,
-    #[serde(skip)]
-    database:           String,
-    #[serde(skip)]
-    tbl_name:           String,
     #[serde(rename = "ldi-name")]
     name:               String,
     #[serde(rename = "ldi-local", default)]
@@ -42,55 +37,84 @@ struct LoadDataInfile {
     columns_terminated: Option<String>,
     #[serde(rename = "ldi-ignore-rows", default)]
     ignore_rows:        Option<usize>,
-    #[serde(rename = "ldi-column-count", default)]
-    column_count:       Option<usize>,
+    #[serde(rename = "ldi-file-column-count", default)]
+    file_column_count:  Option<usize>,
     #[serde(flatten)]
-    column_field:       IndexMap<String, String>,
+    col_set_map:        IndexMap<String, String>,
 }
 
-impl fmt::Display for LoadDataInfile {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "LOAD DATA")?;
-        if self.is_local {
-            writeln!(f, "  LOCAL")?;
+impl LoadDataInfile {
+    fn field_map(v: &str) -> Cow<'_, str> {
+        if v.starts_with('@') {
+            Cow::Borrowed(v)
+        } else {
+            Cow::Owned(format!("`{}`", v.replace('-', "_")))
         }
-        writeln!(f, "  INFILE '{}'", self.file)?;
-        writeln!(f, "  REPLACE")?;
-        writeln!(f, "  INTO TABLE `{}`.`{}`", self.database, self.tbl_name)?;
-        writeln!(f, "  COLUMNS")?;
+    }
+
+    fn sql(&self, file: &str, database: &str, tbl_name: &str) -> AResult<String> {
+        let database = database.replace('-', "_");
+        let tbl_name = tbl_name.replace('-', "_");
+        let mut content = String::new();
+        writeln!(content, "LOAD DATA")?;
+        if self.is_local {
+            writeln!(content, "  LOCAL")?;
+        }
+        writeln!(content, "  INFILE '{}'", file)?;
+        writeln!(content, "  REPLACE")?;
+        writeln!(content, "  INTO TABLE `{}`.`{}`", database, tbl_name)?;
+        writeln!(content, "  COLUMNS")?;
         let fields_terminated = if let Some(fields_terminated) = self.columns_terminated.as_ref() {
             fields_terminated.as_str()
         } else {
             ","
         };
-        writeln!(f, "    TERMINATED BY '{}'", fields_terminated)?;
+        writeln!(content, "    TERMINATED BY '{}'", fields_terminated)?;
         let ignore_rows = if let Some(ignore_rows) = self.ignore_rows {
             ignore_rows
         } else {
             0
         };
-        writeln!(f, "  IGNORE {} ROWS", ignore_rows)?;
+        writeln!(content, "  IGNORE {} ROWS", ignore_rows)?;
 
-        let fields = if let Some(column_count) = self.column_count {
+        let col_map = self
+            .col_set_map
+            .iter()
+            .filter(|(v, _)| v.starts_with("col-"))
+            .collect::<IndexMap<_, _>>();
+        let fields_str = if let Some(column_count) = self.file_column_count {
             let dummy = String::from("@dummy");
-            let mut fields = Vec::new();
+            let mut fields = vec![];
             for idx in 0..column_count {
-                let field = self
-                    .column_field
-                    .get(&format!("{}", idx))
-                    .map(|v| format!("`{}`", v.replace('-', "_")))
-                    .unwrap_or(dummy.to_string());
-                fields.push(field);
+                let field = col_map
+                    .get(&format!("col-{}", idx))
+                    .map(|&v| Self::field_map(v))
+                    .unwrap_or(Cow::Borrowed(&dummy));
+                fields.push(field)
             }
-            fields.join(",")
+            fields.iter().map(|v| v.as_ref()).join(",")
         } else {
-            self.column_field
-                .values()
-                .map(|v| format!("`{}`", v.replace('-', "_")))
-                .join(",")
+            col_map.values().map(|&v| Self::field_map(v)).join(",")
         };
-        write!(f, "  ({});", fields)?;
-        Ok(())
+        write!(content, "  ({})", fields_str)?;
+
+        let set_map_str = self
+            .col_set_map
+            .iter()
+            .filter(|(v, _)| v.starts_with("set-"))
+            .map(|(k, v)| {
+                let field = &k[4..].replace('-', "_");
+                format!("`{}` = {}", field, v)
+            })
+            .join(",\n    ");
+        if !set_map_str.is_empty() {
+            writeln!(content)?;
+            writeln!(content, "  SET")?;
+            write!(content, "    {}", set_map_str)?;
+        }
+        write!(content, ";")?;
+
+        Ok(content)
     }
 }
 
@@ -104,18 +128,19 @@ struct Database {
     collation: Option<String>,
 }
 
-impl fmt::Display for Database {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Database {
+    fn sql(&self) -> AResult<String> {
+        let mut content = String::new();
         // CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET {charset} DEFAULT COLLATE {collation};
-        write!(f, "CREATE DATABASE IF NOT EXISTS `{}`", self.name)?;
+        write!(content, "CREATE DATABASE IF NOT EXISTS `{}`", self.name)?;
         if let Some(charset) = &self.charset {
-            write!(f, " DEFAULT CHARACTER SET {}", charset)?;
+            write!(content, " DEFAULT CHARACTER SET {}", charset)?;
         }
         if let Some(collation) = &self.collation {
-            write!(f, " DEFAULT COLLATE {}", collation)?;
+            write!(content, " DEFAULT COLLATE {}", collation)?;
         }
-        write!(f, ";")?;
-        Ok(())
+        write!(content, ";")?;
+        Ok(content)
     }
 }
 
@@ -129,7 +154,8 @@ struct Table {
     name:        String,
     #[serde(rename = "tbl-private-key")]
     private_key: Vec<String>,
-    #[serde(rename = "tbl-index", with = "vec_vec_str")]
+    // #[serde(rename = "tbl-index", default, with = "vec_vec_str")]
+    #[serde(rename = "tbl-index", default)]
     index:       Vec<Vec<String>>,
     #[serde(flatten)]
     field:       IndexMap<String, Field>,
@@ -161,17 +187,36 @@ impl Table {
         }
         Ok(())
     }
-}
 
-impl fmt::Display for Table {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = self.name.replace('-', "_");
-        let database = self
-            .database
-            .as_ref()
-            .unwrap_or(&String::new())
-            .replace('-', "_");
-        writeln!(f, "CREATE TABLE IF NOT EXISTS `{}`.`{}` (", database, name)?;
+    fn sql(&self, db_name: Option<&str>, tbl_name: Option<&str>) -> AResult<String> {
+        let db_name = if let Some(db_name) = db_name {
+            db_name.replace('-', "_")
+        } else {
+            self.database
+                .as_ref()
+                .unwrap_or(&String::new())
+                .replace('-', "_")
+        };
+        if db_name.is_empty() {
+            Err(eyre!("database is empty"))?;
+        }
+
+        let tbl_name = if let Some(tbl_name) = tbl_name {
+            tbl_name.replace('-', "_")
+        } else {
+            self.name.replace('-', "_")
+        };
+
+        if tbl_name.is_empty() {
+            Err(eyre!("table name is empty"))?;
+        }
+
+        let mut content = String::new();
+        writeln!(
+            content,
+            "CREATE TABLE IF NOT EXISTS `{}`.`{}` (",
+            db_name, tbl_name
+        )?;
         let is_exist_p_key = !self.private_key.is_empty();
         let is_exist_index = !self.index.is_empty();
         for (idx, (name, field)) in self.field.iter().enumerate() {
@@ -181,7 +226,7 @@ impl fmt::Display for Table {
             } else {
                 ""
             };
-            writeln!(f, "{}{}", field, suffix)?;
+            writeln!(content, "  {}{}", field, suffix)?;
         }
         if is_exist_p_key {
             let p_key = self
@@ -190,7 +235,7 @@ impl fmt::Display for Table {
                 .map(|v| format!("`{}`", v.replace('-', "_")))
                 .join(",");
             let suffix = if is_exist_index { "," } else { "" };
-            writeln!(f, "  PRIMARY KEY({}){}", p_key, suffix)?;
+            writeln!(content, "  PRIMARY KEY({}){}", p_key, suffix)?;
         }
         if is_exist_index {
             for (idx, index) in self.index.iter().enumerate() {
@@ -199,11 +244,12 @@ impl fmt::Display for Table {
                     .map(|v| format!("`{}`", v.replace('-', "_")))
                     .join(",");
                 let suffix = if idx == self.index.len() - 1 { "" } else { "," };
-                writeln!(f, "  INDEX({}){}", index, suffix)?;
+                writeln!(content, "  INDEX({}){}", index, suffix)?;
             }
         }
-        write!(f, ") ENGINE=INNODB DEFAULT CHARSET=utf8;")?;
-        Ok(())
+        write!(content, ") ENGINE=INNODB DEFAULT CHARSET=utf8;")?;
+
+        Ok(content)
     }
 }
 
@@ -223,34 +269,28 @@ struct Field {
 
 impl Field {
     fn with_name(&self, name: &str) -> AResult<String> {
+        let mut content = String::new();
         let name = name.replace('-', "_");
-        let mut result = String::new();
-        write!(&mut result, "  `{}` {}", name, self)?;
-        Ok(result)
-    }
-}
-
-impl fmt::Display for Field {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let field_type = self.field_type.to_uppercase();
-        write!(f, "{}", field_type)?;
+        write!(content, "`{}` {}", name, field_type)?;
         if self.not_null {
-            write!(f, " NOT NULL")?;
+            write!(content, " NOT NULL")?;
         }
         if let Some(default) = &self.default {
             if field_type.contains("CHAR") || field_type.contains("VARCHAR") {
-                write!(f, " DEFAULT '{}'", default)?;
+                write!(content, " DEFAULT '{}'", default)?;
             } else {
-                write!(f, " DEFAULT {}", default)?;
+                write!(content, " DEFAULT {}", default)?;
             }
         }
         if let Some(on_update) = &self.on_update {
-            write!(f, " ON UPDATE {}", on_update)?;
+            write!(content, " ON UPDATE {}", on_update)?;
         }
         if let Some(comment) = &self.comment {
-            write!(f, " COMMENT '{}'", comment)?;
+            write!(content, " COMMENT '{}'", comment)?;
         }
-        Ok(())
+
+        Ok(content)
     }
 }
 
@@ -335,10 +375,14 @@ impl SqlLoader {
         Ok(())
     }
 
+    pub fn get<'a>() -> &'a SqlLoader {
+        SQL_LOADER.get().unwrap()
+    }
+
     pub fn database_create_sql_vec(&self) -> Vec<String> {
         let mut sql_vec = vec![];
         for db in self.database.iter() {
-            sql_vec.push(db.to_string());
+            sql_vec.push(db.sql().unwrap());
         }
         sql_vec
     }
@@ -347,10 +391,24 @@ impl SqlLoader {
         let mut sql_vec = vec![];
         for tbl in self.table.iter() {
             if !tbl.is_template {
-                sql_vec.push(tbl.to_string());
+                sql_vec.push(tbl.sql(None, None).unwrap());
             }
         }
         sql_vec
+    }
+
+    pub fn table_create_sql(&self, database: &str, tbl_name: &str) -> AResult<String> {
+        let database = if database.is_empty() {
+            None
+        } else {
+            Some(database)
+        };
+        let tbl = self
+            .tbl_hmap
+            .get(tbl_name)
+            .ok_or_eyre(format!("err table name: {}", tbl_name))?;
+        let sql = tbl.sql(database, Some(tbl_name))?;
+        Ok(sql)
     }
 
     pub fn table_create_sql_from_template(
@@ -363,10 +421,8 @@ impl SqlLoader {
             .tbl_hmap
             .get(tmpl_name)
             .ok_or_eyre(format!("error template name: {}", tmpl_name))?;
-        let mut tbl = tbl.clone();
-        tbl.database = Some(database.into());
-        tbl.name = tbl_name.into();
-        Ok(tbl.to_string())
+        let sql = tbl.sql(Some(database), Some(tbl_name))?;
+        Ok(sql)
     }
 
     pub fn load_data_infile<P: AsRef<Path>>(
@@ -381,26 +437,20 @@ impl SqlLoader {
             .get(ldi_name)
             .ok_or_eyre(format!("error load data infile name: {}", ldi_name))?;
         let file = file.as_ref().plain()?;
-        let mut ldi = ldi.clone();
-        ldi.file = file.display().to_string();
-        ldi.database = database.to_string();
-        ldi.tbl_name = tbl_name.to_string();
-        Ok(ldi.to_string())
-    }
-}
 
-pub fn sql_loader<'a>() -> &'a SqlLoader {
-    SQL_LOADER.get().unwrap()
+        let file = file.display().to_string();
+        let sql = ldi.sql(&file, database, tbl_name)?;
+        Ok(sql)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
     use std::collections::BTreeMap;
 
     use indexmap::IndexMap;
 
-    use super::{sql_loader, Field, SqlLoader};
+    use super::{Field, SqlLoader};
 
     #[test]
     fn test_field() {
@@ -412,17 +462,6 @@ mod tests {
             comment:    Some("这是一个测试".into()),
         };
         println!("{:?}", field_info.with_name("bbb-bbb"))
-    }
-
-    #[test]
-    fn test3() {
-        let a = String::new();
-        let a = Cow::Borrowed(&a);
-        let b = a.clone();
-        match b {
-            Cow::Borrowed(_) => println!("Borrowed"),
-            Cow::Owned(_) => println!("Owned"),
-        }
     }
 
     #[test]
@@ -440,7 +479,7 @@ mod tests {
     #[test]
     fn test_load_more() {
         SqlLoader::init_from(&["./_data/db-sql.toml", "./_data/db-sql-2.toml"]).unwrap();
-        let sql_loader = sql_loader();
+        let sql_loader = SqlLoader::get();
         let db_sql_vec = sql_loader.database_create_sql_vec();
         for sql in db_sql_vec {
             println!("{}", sql)
@@ -454,8 +493,8 @@ mod tests {
     #[test]
     fn test_sql_from_template() {
         SqlLoader::init_from(&["./_data/db-sql.toml", "./_data/db-sql-2.toml"]).unwrap();
-        let sql = sql_loader();
-        let sql = sql
+        let sql_loader = SqlLoader::get();
+        let sql = sql_loader
             .table_create_sql_from_template("tbl-tmp-tmpl", "tmp", "bbbb-bbbb")
             .unwrap();
         println!("sql:{}", sql);
@@ -464,11 +503,23 @@ mod tests {
     }
 
     #[test]
+    fn test_sql_from_table() {
+        SqlLoader::init_from(&["./_data/db-sql.toml", "./_data/db-sql-2.toml"]).unwrap();
+        let sql_loader = SqlLoader::get();
+        let sql = sql_loader.table_create_sql("xxx", "tbl-tmp-3").unwrap();
+        println!("sql:{}", sql);
+    }
+
+    #[test]
     fn test_sql_ldi() {
         SqlLoader::init_from(&["./_data/db-sql.toml", "./_data/db-sql-2.toml"]).unwrap();
-        let loader = sql_loader();
+        let loader = SqlLoader::get();
         let sql = loader
             .load_data_infile("ldi-1", "xxx/xxx/xxx", "tmpssss", "xxxx")
+            .unwrap();
+        println!("{}", sql);
+        let sql = loader
+            .load_data_infile("ldi-2", "xxxx", "xxx", "xxx")
             .unwrap();
         println!("{}", sql);
         let sql = loader
@@ -502,5 +553,12 @@ mod tests {
         for (k, v) in index_map.iter() {
             println!("{} {}", k, v)
         }
+    }
+
+    #[test]
+    fn test_str_sub() {
+        let tmp = "set-10000";
+        let tmp = &tmp[4..];
+        println!("{}", tmp);
     }
 }

@@ -122,9 +122,7 @@ impl fmt::Display for KLineItem {
 
 impl KLineItem {
     pub fn sql_entity_replace(&self, key: &str, db: &str, tbl_name: &str) -> SqlEntity {
-        let table_name = &table_name(db, tbl_name);
-
-        let mut builder = InsertSqlArgsBuilder::new(table_name);
+        let mut builder = InsertSqlArgsBuilder::new(db, tbl_name);
         builder.add("trade_date", self.trade_date);
         builder.add("trade_time", self.trade_time);
         builder.add("code", &self.code);

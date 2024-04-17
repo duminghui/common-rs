@@ -32,6 +32,7 @@ pub fn unzip_single_file(path: impl AsRef<Path>, output_dir: impl AsRef<Path>) -
 
     let mut outfile = fs::File::create(outfile_path)
         .map_err(|e| eyre!("创建解压目标文件失败: {} {}", outfile_path.display(), e))?;
+
     io::copy(&mut zip_file, &mut outfile)
         .map_err(|e| eyre!("写入解压目标文件失败: {} {}", outfile_path.display(), e))?;
 
