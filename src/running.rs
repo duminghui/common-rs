@@ -30,13 +30,8 @@ pub fn app(name: &str) -> bool {
     porcesses_by_name_count(name) > 0
 }
 
-pub fn apps<'a>(names: &'a [&'a str]) -> Option<Cow<'a, str>> {
-    for name in names {
-        if app(name) {
-            return Some(Cow::Borrowed(name));
-        }
-    }
-    None
+pub fn apps<'a>(names: &'a [&'a str]) -> Option<&'a str> {
+    names.iter().copied().find(|&name| app(name))
 }
 
 pub fn app_self() -> bool {

@@ -1,8 +1,9 @@
 use std::time::{Duration, Instant};
 
-use indicatif::HumanCount;
 use sqlx::mysql::MySqlArguments;
 use sqlx::{Executor, MySqlPool};
+
+use crate::human::HumanCountFixPad;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -27,7 +28,7 @@ impl std::fmt::Display for ExecInfo {
         write!(
             f,
             "(Rows affected:{:>9}[{:>9.3?}])",
-            HumanCount(self.rows_affected).to_string(),
+            HumanCountFixPad(self.rows_affected),
             self.elapsed,
         )
     }

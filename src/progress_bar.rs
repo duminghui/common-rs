@@ -73,8 +73,8 @@ where
 
     let mut pb_task_vec = vec![pb_progress.clone()];
 
-    let pb_idx_padding = format!("{}", parallel_limit).len();
-    let idx_padding = format!("{}", data_len).len();
+    let pb_idx_padding = (parallel_limit.checked_ilog10().unwrap_or_default() + 1) as usize;
+    let idx_padding = (data_len.checked_ilog10().unwrap_or_default() + 1) as usize;
 
     for i in 1..=parallel_limit {
         let pb = m
