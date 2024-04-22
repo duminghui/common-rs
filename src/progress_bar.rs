@@ -97,7 +97,7 @@ where
 
     let mut join_recv_handlers: Vec<JoinHandle<AResult<_>>> = Vec::with_capacity(parallel_limit);
 
-    let (tx, rx) = async_channel::bounded::<(usize, T)>(1);
+    let (tx, rx) = async_channel::bounded::<(usize, T)>(parallel_limit);
 
     let result_vec_cap = data_len / parallel_limit + 1;
 
