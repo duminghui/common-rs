@@ -27,6 +27,8 @@ pub mod serde_extend;
 pub mod sizehmap;
 #[cfg(feature = "sql-loader")]
 pub mod sql_loader;
+#[cfg(feature = "ssh")]
+pub mod ssh;
 #[cfg(feature = "timer")]
 pub mod timer;
 #[cfg(feature = "toml")]

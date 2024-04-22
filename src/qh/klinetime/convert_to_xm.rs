@@ -105,7 +105,9 @@ mod tests {
     async fn test_to_xm() {
         init_test_mysql_pools();
 
-        init(&MySqlPools::pool()).await.unwrap();
+        init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let cxm = ConvertToXm::current();
         let breed = "ag";

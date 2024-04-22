@@ -1,12 +1,13 @@
 [package]
 name = "common-rs"
-version = "0.3.4"
+version = "0.5.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 async-channel = { version = "2.2.1", optional = true }
+async-ssh2-lite = { version = "0.4.7", optional = true, features = ["tokio"] }
 chrono = { version = "0.4.38", optional = true, default-features = false, features = ["std"] }
 dirs = { version = "5.0.1", optional = true }
 # color-eyre = "0.6.2"
@@ -25,7 +26,7 @@ serde = { version = "1.0.198", optional = true, default-features = false, featur
 serde_yaml = { version = "0.9.34", optional = true, default-features = false }
 sqlx = { version = "0.7.4", optional = true, default-features = false, features = ["macros", "runtime-tokio-rustls", "mysql", "chrono", "rust_decimal"] }
 sysinfo = { version = "0.30.11", optional = true }
-thiserror = { version = "1.0.58", optional = true, default-features = false }
+thiserror = { version = "1.0.59", optional = true, default-features = false }
 time = { version = "0.3.36", optional = true, default-features = false, features = ["macros", "std", "parsing"] }
 tokio = { version = "1.37.0", optional = true, default-features = false, features = ["macros", "rt-multi-thread"] }
 toml = { version = "0.8.12", optional = true, default-features = false, features = ["parse"] }
@@ -35,7 +36,7 @@ tracing-appender = { version = "0.2.3", optional = true, default-features = fals
 tracing-error = { version = "0.2.0", optional = true, default-features = false }
 tracing-subscriber = { version = "0.3.18", optional = true, default-features = false, features = ["tracing-log", "ansi", "time", "std"] }
 uuid = { version = "1.8.0", optional = true, default-features = false, features = ["v7", "std", "fast-rng"] }
-zip = { version = "0.6.6", optional = true, default-features = false, features = ["deflate-zlib"] }
+zip = { version = "1.1.1", optional = true, default-features = false, features = ["deflate-zlib"] }
 
 [features]
 default = ["all"]
@@ -43,8 +44,8 @@ all = ["cell", "file", "sql-loader", "mysqlx-batch", "qh", "sizehmap", "timer", 
 cell = []
 file = ["dep:zip"]
 sql-loader = ["toml", "serde-extend", "dep:indexmap", "dep:itertools"]
-mysqlx = ["yaml", "human", "dep:log", "dep:serde", "dep:sqlx", "dep:thiserror", "dep:tokio", "dep:uuid", "dep:futures-util", "dep:itertools", "dep:chrono"]
-mysqlx-batch = ["mysqlx", "dep:async-channel"]
+mysqlx = ["yaml", "toml", "human", "ssh", "dep:log", "dep:serde", "dep:sqlx", "dep:thiserror", "dep:tokio", "dep:uuid", "dep:futures-util", "dep:itertools", "dep:chrono"]
+mysqlx-batch = ["mysqlx"]
 qh = ["mysqlx-batch", "ymdhms", "dep:futures-util", "dep:thiserror", "dep:tokio", "dep:rust_decimal"]
 sizehmap = []
 timer = ["dep:futures-util", "dep:tokio"]
@@ -59,7 +60,10 @@ human = ["dep:rust_decimal"]
 running = ["dep:sysinfo"]
 path-plain = ["dep:dirs"]
 progress-bar = ["dep:async-channel", "dep:indicatif", "dep:log", "dep:rand", "dep:tokio"]
+ssh = ["path-plain", "serde-extend", "dep:async-ssh2-lite", "dep:tokio"]
 
 [dev-dependencies]
 tokio-stream = "0.1.15"
 indexmap = { version = "2.2.6", features = ["serde"] }
+serde_yaml = { version = "0.9.34" }
+toml = { version = "0.8.12" }

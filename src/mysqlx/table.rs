@@ -308,7 +308,9 @@ mod tests {
     async fn test_create_table() {
         init_test_mysql_pools();
         let tb = table_creator();
-        let r = tb.create(MySqlPools::pool().as_ref()).await;
+        let r = tb
+            .create(MySqlPools::pool_default().await.unwrap().as_ref())
+            .await;
         if let Err(err) = r {
             println!("{}", err);
             return;

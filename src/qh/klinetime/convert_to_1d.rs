@@ -121,8 +121,12 @@ mod tests {
     #[tokio::test]
     async fn test_to_1d() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let yyyymmdd = 20220617;
 

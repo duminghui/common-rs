@@ -211,14 +211,16 @@ mod tests {
     #[tokio::test]
     async fn test_init_from_time_range() {
         init_test_mysql_pools();
-        let r = init_from_time_range(MySqlPools::pool()).await;
+        let r = init_from_time_range(MySqlPools::pool_default().await.unwrap()).await;
         println!("r: {:?}", r);
     }
 
     async fn print_period_time_range(breed: &str) {
         println!("==== {} ======", breed);
         init_test_mysql_pools();
-        init_from_time_range(MySqlPools::pool()).await.unwrap();
+        init_from_time_range(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let time_range = time_range::time_range_by_breed(breed).unwrap();
         for (open_time, close_time) in time_range.times_vec().iter() {
@@ -230,7 +232,9 @@ mod tests {
     async fn print_breed_period_info(breed: &str, period: &str, day: &NaiveDate) {
         println!("==== {} {} ======", breed, period);
         init_test_mysql_pools();
-        init_from_time_range(MySqlPools::pool()).await.unwrap();
+        init_from_time_range(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range::time_range_by_breed(breed).unwrap();
 
         // 周期时间和对应的时间vec;

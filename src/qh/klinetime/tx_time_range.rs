@@ -300,9 +300,13 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_util_init() {
         init_test_mysql_pools();
-        BreedInfoVec::init(&MySqlPools::pool()).await.unwrap();
+        BreedInfoVec::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let mut trd = TxTimeRangeData::default();
-        trd.init_from_db(&MySqlPools::pool()).await.unwrap();
+        trd.init_from_db(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         for BreedInfo { breed, .. } in BreedInfoVec::current() {
             println!(
                 "{}: {:?}",
@@ -327,8 +331,12 @@ mod tests {
 
     async fn test_next_minute_sub(breed: &str, time: &NaiveDateTime) {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         println!("############## start: {}", breed);
         let ttrd = TxTimeRangeData::current();
         let mut key_hmap = HashMap::new();
@@ -493,8 +501,12 @@ mod tests {
     #[tokio::test]
     async fn test_is_first_minute() {
         init_test_mysql_pools();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time = NaiveTime::from_hms_opt(9, 31, 0).unwrap();
         test_is_first_minute_sub("IC", &20220805, &time, true).await;
         let time = NaiveTime::from_hms_opt(9, 32, 0).unwrap();

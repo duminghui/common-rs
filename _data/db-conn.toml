@@ -1,0 +1,48 @@
+[local-db]
+default = true
+host = "127.0.0.1"
+port = 3306
+user = "root"
+passwd = "12345678"
+database = "mysql"
+charset = "utf8"
+collation = "utf8_general_ci"
+min-conns = 2
+max-conns = 3
+acquire-timeout-secs = 10
+idle-timeout-secs = 60
+log-sql = false
+
+[ssh-db-password]
+ssh-tunnel = { addr = "127.0.0.1:18822", user = "root", auth.password = "xxxxxxx" }
+host = "127.0.0.1"
+port = 3306
+user = "EQ100002"
+passwd = "dmh!100002"
+database = "mysql"
+charset = "utf8"
+collation = "utf8_general_ci"
+min-conns = 2
+max-conns = 3
+acquire-timeout-secs = 10
+idle-timeout-secs = 60
+log-sql = false
+
+[ssh-db-key-pair]
+host = "127.0.0.1"
+port = 3306
+user = "EQ100002"
+passwd = "dmh!100002"
+database = "mysql"
+charset = "utf8"
+collation = "utf8_general_ci"
+min-conns = 2
+max-conns = 3
+acquire-timeout-secs = 10
+idle-timeout-secs = 60
+log-sql = false
+
+[ssh-db-key-pair.ssh-tunnel]
+addr = "127.0.0.1:18822"
+user = "root"
+auth.key-pair = "~/.ssh/id_ed25519-work"

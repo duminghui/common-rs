@@ -59,8 +59,8 @@ type Result = std::result::Result<BatchExecInfo, BatchExecError>;
 #[derive(Debug, Default)]
 pub struct BatchExecInfo {
     is_exec:          bool,
-    exec_threshold:   u16,
-    pub entity_count: u16,
+    exec_threshold:   usize,
+    pub entity_count: usize,
     rows_affected:    u64,
     elapsed:          Duration,
 }
@@ -100,14 +100,14 @@ pub enum BatchExecError {
 /// 只支持单线程
 pub struct BatchExec {
     pool:           Arc<MySqlPool>,
-    exec_threshold: u16,
+    exec_threshold: usize,
     entity_idx:     u16,
     entity_map:     HashMap<String, SqlEntity>,
     lock:           Arc<Mutex<()>>,
 }
 
 impl BatchExec {
-    pub fn new(pool: Arc<MySqlPool>, exec_threshold: u16) -> BatchExec {
+    pub fn new(pool: Arc<MySqlPool>, exec_threshold: usize) -> BatchExec {
         BatchExec {
             pool,
             exec_threshold,
@@ -139,14 +139,14 @@ impl BatchExec {
         entity_vec
     }
 
-    async fn execute(&mut self, exec_threshold: u16) -> Result {
+    async fn execute(&mut self, exec_threshold: usize) -> Result {
         let lock = self.lock.clone();
         let lock = lock.lock().await;
 
         let start = Instant::now();
         let mut exec_info = BatchExecInfo::default();
 
-        let entity_len = self.entity_map.len() as u16;
+        let entity_len = self.entity_map.len();
 
         exec_info.exec_threshold = exec_threshold;
         exec_info.entity_count = entity_len;
@@ -228,8 +228,8 @@ mod botch_exec_tests {
         SqlEntity::new("", "", args);
     }
 
-    fn batch_exec() -> BatchExec {
-        let pool = MySqlPools::pool();
+    async fn batch_exec() -> BatchExec {
+        let pool = MySqlPools::pool_default().await.unwrap();
         let mut be = BatchExec::new(pool, 10);
         // let sql = "UPDATE tmp.tbl_tmp SET v_v=? WHERE id=?";
         let sql = "REPLACE INTO tmp.tbl_tmp(v_v,id) VALUES(?,?)";
@@ -276,9 +276,9 @@ mod botch_exec_tests {
         be
     }
 
-    #[test]
-    fn test_batch_exec_new() {
-        let be = batch_exec();
+    #[tokio::test]
+    async fn test_batch_exec_new() {
+        let be = batch_exec().await;
         for (k, v) in &be.entity_map {
             println!("## {:?}, {}", k, v);
         }
@@ -289,7 +289,7 @@ mod botch_exec_tests {
     #[tokio::test]
     async fn test_sorted_entity_vec() {
         init_test_mysql_pools();
-        let mut be = batch_exec();
+        let mut be = batch_exec().await;
         let entity_vec = be.sorted_entity_vec().await;
         println!("# len {:?}", entity_vec.len());
         for e in entity_vec {
@@ -300,7 +300,7 @@ mod botch_exec_tests {
     #[tokio::test]
     async fn test_batch_exec_execute() {
         init_test_mysql_pools();
-        let mut be = batch_exec();
+        let mut be = batch_exec().await;
         let result = be.execute_all().await;
         match result {
             Ok(info) => {

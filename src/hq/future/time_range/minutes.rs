@@ -285,7 +285,9 @@ mod test {
 
     async fn print_new_from_time_range(breed: &str) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         Minutes::new_from_times_vec(&time_range.times_vec);
     }
@@ -297,7 +299,9 @@ mod test {
 
     async fn print_minute_idx_map(breed: &str, day: &NaiveDate) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         let minute_idx_map = Minutes::minute_idx_hmap(&time_range.times_vec);
 

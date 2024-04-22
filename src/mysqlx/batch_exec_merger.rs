@@ -1,9 +1,9 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use async_channel::Sender;
 use log::{error, info};
 use sqlx::MySqlPool;
+use tokio::sync::mpsc::{self, UnboundedSender};
 
 use super::batch_exec::{BatchExec, SqlEntity};
 use crate::AResult;
@@ -12,19 +12,19 @@ static MERGER: OnceLock<BatchExecMerger> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct BatchExecMerger {
-    sender: Sender<SqlEntity>,
+    sender: UnboundedSender<SqlEntity>,
 }
 
 impl BatchExecMerger {
-    pub fn start_store_thread(pool: Arc<MySqlPool>, threshold: u16, tick_millis: u64) {
-        let (sender, rx) = async_channel::unbounded::<SqlEntity>();
+    pub fn start_store_thread(pool: Arc<MySqlPool>, threshold: usize, tick_millis: u64) {
+        let (sender, mut rx) = mpsc::unbounded_channel::<SqlEntity>();
         tokio::spawn(async move {
             info!("[BatchExecMerger] Thrad start...");
             let mut interval = tokio::time::interval(Duration::from_millis(tick_millis));
             let mut batch_exec = BatchExec::new(pool, threshold);
             loop {
                 tokio::select! {
-                    Ok(entity) = rx.recv() => {
+                    Some(entity) = rx.recv() => {
                         batch_exec.add(entity);
                         let exec_info = batch_exec.execute_threshold().await;
                         if let Err(err) = exec_info {
@@ -59,7 +59,7 @@ impl BatchExecMerger {
     }
 
     pub async fn add_sql_entity(entity: SqlEntity) -> AResult<()> {
-        MERGER.get().unwrap().sender.send(entity).await?;
+        MERGER.get().unwrap().sender.send(entity)?;
         Ok(())
     }
 }
@@ -68,17 +68,18 @@ impl BatchExecMerger {
 mod tests {
     use std::time::Duration;
 
+    use tokio::sync::mpsc;
     use tokio::time::sleep;
 
     #[tokio::test]
     async fn test_3() {
-        let (sender, rx) = async_channel::unbounded::<String>();
+        let (sender, mut rx) = mpsc::unbounded_channel::<String>();
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_millis(100));
             loop {
                 tokio::select! {
-                    Ok(msg) = rx.recv() => {
+                    Some(msg) = rx.recv() => {
                         println!("get: {}",msg);
                     }
                     _  = interval.tick() => {
@@ -92,7 +93,7 @@ mod tests {
         });
 
         for i in 0..50 {
-            sender.send(format!("{}", i)).await.unwrap();
+            sender.send(format!("{}", i)).unwrap();
             sleep(Duration::from_millis(200)).await;
         }
     }

@@ -54,9 +54,9 @@ where
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
-    use serde::Deserialize;
+    use serde::{Deserialize, Serialize};
 
     use crate::toml::parse_from_file;
 
@@ -83,5 +83,75 @@ mod tests {
         }
         let tmp = parse_from_file::<_, AppConfig>("");
         println!("{:?}", tmp);
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    enum EnumTmp {
+        #[serde(rename = "enum1")]
+        Enum1,
+        #[serde(rename = "enum2")]
+        Enum2,
+        #[serde(rename = "enum3")]
+        Enum3,
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub enum AuthMethod {
+        #[serde(rename = "key-pair")]
+        KeyPair {
+            private_key: PathBuf,
+            passphrase:  Option<String>,
+        },
+        #[serde(rename = "password")]
+        Password(String),
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct Tmp2 {
+        pub b:    String,
+        pub a:    String,
+        enum_tmp: EnumTmp,
+        auth:     AuthMethod,
+    }
+
+    #[test]
+    fn test_enum() {
+        let tmp = Tmp2 {
+            a:        "aa".into(),
+            b:        "bb".into(),
+            enum_tmp: EnumTmp::Enum1,
+            auth:     AuthMethod::KeyPair {
+                private_key: "XXX".into(),
+                passphrase:  Some("xxx".into()),
+            },
+        };
+
+        let toml_str = toml::to_string(&tmp).unwrap();
+        println!("{}", toml_str);
+        println!("-------------");
+        let toml_str = toml::to_string_pretty(&tmp).unwrap();
+        println!("{}", toml_str);
+        println!("-------------");
+
+        let toml_str = r#"
+        a = "aa"
+        b = "bb"
+        enum_tmp = "enum2"
+
+        auth.password = "XXXXXXXX"
+        "#;
+        let tmp = toml::from_str::<Tmp2>(toml_str).unwrap();
+        println!("{:#?}", tmp);
+        println!("-----------------------");
+
+        let toml_str = r#"
+        a = "aa"
+        b = "bb"
+        enum_tmp = "enum2"
+
+        auth.key-pair = {private_key = "XXX",passphrase = "xxx"}
+        "#;
+        let tmp = toml::from_str::<Tmp2>(toml_str).unwrap();
+        println!("{:#?}", tmp);
     }
 }

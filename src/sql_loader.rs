@@ -9,7 +9,6 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 use serde::Deserialize;
 
-use crate::path_plain::PathPlainExt;
 use crate::serde_extend::string::opt_str;
 use crate::{toml, AResult};
 
@@ -52,30 +51,30 @@ impl LoadDataInfile {
         }
     }
 
-    fn sql(&self, file: &str, database: &str, tbl_name: &str) -> AResult<String> {
+    fn sql(&self, ldi_file: &str, database: &str, tbl_name: &str) -> AResult<String> {
         let database = database.replace('-', "_");
         let tbl_name = tbl_name.replace('-', "_");
-        let mut content = String::new();
-        writeln!(content, "LOAD DATA")?;
+        let mut s = String::new();
+        writeln!(s, "LOAD DATA")?;
         if self.is_local {
-            writeln!(content, "  LOCAL")?;
+            writeln!(s, "  LOCAL")?;
         }
-        writeln!(content, "  INFILE '{}'", file)?;
-        writeln!(content, "  REPLACE")?;
-        writeln!(content, "  INTO TABLE `{}`.`{}`", database, tbl_name)?;
-        writeln!(content, "  COLUMNS")?;
+        writeln!(s, "  INFILE '{}'", ldi_file)?;
+        writeln!(s, "  REPLACE")?;
+        writeln!(s, "  INTO TABLE `{}`.`{}`", database, tbl_name)?;
+        writeln!(s, "  COLUMNS")?;
         let fields_terminated = if let Some(fields_terminated) = self.columns_terminated.as_ref() {
             fields_terminated.as_str()
         } else {
             ","
         };
-        writeln!(content, "    TERMINATED BY '{}'", fields_terminated)?;
+        writeln!(s, "    TERMINATED BY '{}'", fields_terminated)?;
         let ignore_rows = if let Some(ignore_rows) = self.ignore_rows {
             ignore_rows
         } else {
             0
         };
-        writeln!(content, "  IGNORE {} ROWS", ignore_rows)?;
+        writeln!(s, "  IGNORE {} ROWS", ignore_rows)?;
 
         let col_map = self
             .col_set_map
@@ -96,7 +95,7 @@ impl LoadDataInfile {
         } else {
             col_map.values().map(|&v| Self::field_map(v)).join(",")
         };
-        write!(content, "  ({})", fields_str)?;
+        write!(s, "  ({})", fields_str)?;
 
         let set_map_str = self
             .col_set_map
@@ -108,13 +107,13 @@ impl LoadDataInfile {
             })
             .join(",\n    ");
         if !set_map_str.is_empty() {
-            writeln!(content)?;
-            writeln!(content, "  SET")?;
-            write!(content, "    {}", set_map_str)?;
+            writeln!(s)?;
+            writeln!(s, "  SET")?;
+            write!(s, "    {}", set_map_str)?;
         }
-        write!(content, ";")?;
+        write!(s, ";")?;
 
-        Ok(content)
+        Ok(s)
     }
 }
 
@@ -132,7 +131,8 @@ impl Database {
     fn sql(&self) -> AResult<String> {
         let mut content = String::new();
         // CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET {charset} DEFAULT COLLATE {collation};
-        write!(content, "CREATE DATABASE IF NOT EXISTS `{}`", self.name)?;
+        let db_name = self.name.replace('-', "_");
+        write!(content, "CREATE DATABASE IF NOT EXISTS `{}`", db_name)?;
         if let Some(charset) = &self.charset {
             write!(content, " DEFAULT CHARACTER SET {}", charset)?;
         }
@@ -425,10 +425,10 @@ impl SqlLoader {
         Ok(sql)
     }
 
-    pub fn load_data_infile<P: AsRef<Path>>(
+    pub fn load_data_infile(
         &self,
         ldi_name: &str,
-        file: P,
+        ldi_file: &str,
         database: &str,
         tbl_name: &str,
     ) -> AResult<String> {
@@ -436,10 +436,8 @@ impl SqlLoader {
             .ldi_hamp
             .get(ldi_name)
             .ok_or_eyre(format!("error load data infile name: {}", ldi_name))?;
-        let file = file.as_ref().plain()?;
 
-        let file = file.display().to_string();
-        let sql = ldi.sql(&file, database, tbl_name)?;
+        let sql = ldi.sql(ldi_file, database, tbl_name)?;
         Ok(sql)
     }
 }

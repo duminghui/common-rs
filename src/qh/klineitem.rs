@@ -420,7 +420,13 @@ mod tests {
         init_test_mysql_pools();
         let kline_db_util = KLineItemUtil::new("hqdb");
         let kline_item_stream = kline_db_util
-            .item_vec_egt_dt(&MySqlPools::pool(), "agL9", 1, "2022-05-13", 10)
+            .item_vec_egt_dt(
+                &MySqlPools::pool_default().await.unwrap(),
+                "agL9",
+                1,
+                "2022-05-13",
+                10,
+            )
             .await
             .unwrap();
         for kline_item in kline_item_stream.iter() {
@@ -434,7 +440,7 @@ mod tests {
         let kiu = KLineItemUtil::new("hqdb");
         let kline_item_vec_range = kiu
             .item_vec_range(
-                &MySqlPools::pool(),
+                &MySqlPools::pool_default().await.unwrap(),
                 "agL9",
                 1,
                 "2022-06-20 09:01:00",
@@ -462,7 +468,14 @@ mod tests {
             .and_hms_opt(15, 1, 0)
             .unwrap();
         let kline_item_vec_range = kiu
-            .item_vec_range_by_datetime(&MySqlPools::pool(), "agL9", 1, &sdatetime, &edatetime, 500)
+            .item_vec_range_by_datetime(
+                &MySqlPools::pool_default().await.unwrap(),
+                "agL9",
+                1,
+                &sdatetime,
+                &edatetime,
+                500,
+            )
             .await
             .unwrap();
         for item in kline_item_vec_range.iter() {
@@ -476,7 +489,7 @@ mod tests {
         init_test_mysql_pools();
         let kiu = KLineItemUtil::new("hqdb");
         let kline_item_vec = kiu
-            .item_vec_oldest(&MySqlPools::pool(), "agL9", 5, 100)
+            .item_vec_oldest(&MySqlPools::pool_default().await.unwrap(), "agL9", 5, 100)
             .await
             .unwrap();
         for item in kline_item_vec.iter() {
@@ -490,7 +503,7 @@ mod tests {
         init_test_mysql_pools();
         let kiu = KLineItemUtil::new("hqdb");
         let kline_item_vec = kiu
-            .item_vec_latest(&MySqlPools::pool(), "agL9", 1, 10)
+            .item_vec_latest(&MySqlPools::pool_default().await.unwrap(), "agL9", 1, 10)
             .await
             .unwrap();
         for item in kline_item_vec.iter() {
@@ -513,7 +526,14 @@ mod tests {
             .and_hms_opt(8, 1, 0)
             .unwrap();
         let kline_item_vec_range = kiu
-            .item_vec_range_by_datetime(&MySqlPools::pool(), "agL9", 1, &sdatetime, &edatetime, 500)
+            .item_vec_range_by_datetime(
+                &MySqlPools::pool_default().await.unwrap(),
+                "agL9",
+                1,
+                &sdatetime,
+                &edatetime,
+                500,
+            )
             .await
             .unwrap();
         for item in kline_item_vec_range.iter() {
@@ -528,7 +548,13 @@ mod tests {
 
         let kline_db_util = KLineItemUtil::new("hqdb");
         let kline_item_stream = kline_db_util
-            .item_vec_latest_by_symbol(&MySqlPools::pool(), "agL9", 5, "agL9", 5)
+            .item_vec_latest_by_symbol(
+                &MySqlPools::pool_default().await.unwrap(),
+                "agL9",
+                5,
+                "agL9",
+                5,
+            )
             .await
             .unwrap();
         let kline_item_stream = &kline_item_stream;
@@ -544,7 +570,7 @@ mod tests {
 
         let kline_db_util = KLineItemUtil::new("hqdb");
         let symbol_vec = kline_db_util
-            .symbol_vec(&MySqlPools::pool(), "agL9")
+            .symbol_vec(&MySqlPools::pool_default().await.unwrap(), "agL9")
             .await
             .unwrap();
         let symbol_vec = &symbol_vec;

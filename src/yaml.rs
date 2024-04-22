@@ -75,7 +75,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use indexmap::{indexmap, IndexMap};
     use serde::{Deserialize, Serialize};
@@ -154,11 +154,23 @@ mod tests {
         Enum3,
     }
 
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub enum AuthMethod {
+        #[serde(rename = "key-pair")]
+        KeyPair {
+            private_key: PathBuf,
+            passphrase:  Option<String>,
+        },
+        #[serde(rename = "password")]
+        Password(String),
+    }
+
     #[derive(Debug, Deserialize, Serialize)]
     struct Tmp2 {
         pub a:    String,
         pub b:    String,
         enum_tmp: EnumTmp,
+        auth:     AuthMethod,
     }
 
     #[test]
@@ -167,6 +179,20 @@ mod tests {
             a:        "aa".into(),
             b:        "bb".into(),
             enum_tmp: EnumTmp::Enum1,
+            auth:     AuthMethod::KeyPair {
+                private_key: "XXX".into(),
+                passphrase:  Some("xxx".into()),
+            },
+        };
+
+        let yaml_str = serde_yaml::to_string(&tmp).unwrap();
+        println!("{}", yaml_str);
+
+        let tmp = Tmp2 {
+            a:        "aa".into(),
+            b:        "bb".into(),
+            enum_tmp: EnumTmp::Enum1,
+            auth:     AuthMethod::Password("XXXXX".into()),
         };
 
         let yaml_str = serde_yaml::to_string(&tmp).unwrap();
@@ -175,7 +201,10 @@ mod tests {
         let yaml_str = r#"
         a: aa
         b: bb
-        enum_tmp: enum4
+        enum_tmp: enum1
+        auth: !key-pair
+          private_key: xxxxxx
+          passphrase: bbbbb
         "#;
 
         let tmp = serde_yaml::from_str::<Tmp2>(yaml_str).unwrap();

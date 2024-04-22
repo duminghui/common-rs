@@ -143,13 +143,17 @@ mod tests {
     #[tokio::test]
     async fn test_init_from_db() {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
     async fn test_next_trade_day() {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let day = NaiveDate::from_ymd_opt(2023, 6, 21).unwrap();
         let trade_day = next_trade_day(&day);
         println!("{} {:?}", day, trade_day);
@@ -177,7 +181,9 @@ mod tests {
 
     async fn print_night_start_trade_day(results: &[(&str, &str)]) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         for (source, check) in results {
             let day = NaiveDate::parse_from_str(source, "%Y-%m-%d").unwrap();

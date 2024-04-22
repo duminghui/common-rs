@@ -151,7 +151,9 @@ mod tests {
     async fn test_1m(breed: &str, results: &[(&str, &str)]) {
         println!("==== {} ======", breed);
         init_test_mysql_pools();
-        init_from_time_range(MySqlPools::pool()).await.unwrap();
+        init_from_time_range(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         for (source, target) in results {
             let dt = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();

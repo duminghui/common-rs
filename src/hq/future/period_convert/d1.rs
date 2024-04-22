@@ -63,7 +63,9 @@ mod tests {
     #[tokio::test]
     async fn test_ag() {
         init_test_mysql_pools();
-        init_from_time_range(MySqlPools::pool()).await.unwrap();
+        init_from_time_range(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let trade_date = NaiveDate::from_ymd_opt(2023, 6, 25).unwrap();
         let converter1d = by_breed("ag").unwrap();
         let period_dt = converter1d.convert(&trade_date);

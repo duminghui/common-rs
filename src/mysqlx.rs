@@ -3,12 +3,17 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
+use eyre::eyre;
+use log::{debug, error};
 use serde::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::{ConnectOptions, Executor, MySqlPool};
+use tokio::sync::Mutex;
 
-use crate::yaml;
-use crate::yaml::YamlError;
+use crate::ssh::connect::Ssh;
+use crate::ssh::tunnel::{ForwarderMessage, SshTunnel};
+use crate::toml::{self, TomlParseError};
+use crate::yaml::{self, YamlError};
 
 #[cfg(feature = "mysqlx-batch")]
 pub mod batch_exec;
@@ -19,11 +24,14 @@ pub mod exec;
 pub mod sql_builder;
 pub mod table;
 pub mod types;
+pub mod variables;
 
 #[derive(Debug, Deserialize)]
 struct PoolConfig {
-    #[serde(rename = "default")]
-    default:              Option<bool>,
+    #[serde(rename = "default", default)]
+    default:              bool,
+    #[serde(rename = "ssh-tunnel")]
+    ssh:                  Option<Ssh>,
     #[serde(rename = "host")]
     host:                 String,
     #[serde(rename = "port")]
@@ -40,28 +48,46 @@ struct PoolConfig {
     #[serde(rename = "collation")]
     // utf8_general_ci
     collation: String,
-    #[serde(rename = "minConns")]
+    #[serde(rename = "min-conns")]
     min_conns:            u32,
-    #[serde(rename = "maxConns")]
+    #[serde(rename = "max-conns")]
     max_conns:            u32,
-    #[serde(rename = "idleTimeoutSecs")]
-    idle_timeout_secs:    u64,
-    #[serde(rename = "acquireTimeoutSecs")]
+    #[serde(rename = "acquire-timeout-secs")]
     acquire_timeout_secs: u64,
-    #[serde(rename = "logSql")]
+    #[serde(rename = "idle-timeout-secs")]
+    idle_timeout_secs:    u64,
+    #[serde(rename = "log-sql")]
     log_sql:              bool,
 }
 
 fn conn_config_from_file(
     filepath: impl AsRef<Path> + std::fmt::Debug,
-) -> Result<HashMap<String, PoolConfig>, YamlError> {
-    yaml::parse_from_file(filepath)
+) -> Result<HashMap<String, PoolConfig>, PoolConnError> {
+    let file_extension = filepath.as_ref().extension().unwrap_or_default();
+    if file_extension != "yaml" && file_extension != "toml" {
+        return Err(PoolConnError::Error(eyre!(
+            "mysql conn 错误的配置文件: {:?}",
+            filepath
+        )));
+    }
+    let config = if file_extension == "yaml" {
+        yaml::parse_from_file::<_, HashMap<String, PoolConfig>>(filepath)?
+    } else {
+        toml::parse_from_file::<_, HashMap<String, PoolConfig>>(filepath)?
+    };
+    Ok(config)
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum PoolConnError {
     #[error("{0}")]
+    Error(#[from] eyre::Error),
+
+    #[error("{0}")]
     YamlParseError(#[from] YamlError),
+
+    #[error("{0}")]
+    TomlParseError(#[from] TomlParseError),
 
     #[error(r#"db connect "{0}" not exists!"#)]
     KeyNotExist(String),
@@ -74,10 +100,39 @@ pub enum PoolConnError {
     // InitLockWrite(#[from] PoisonError<RwLockWriteGuard<'static, MySqlPools>>),
 }
 
-fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {
+async fn connect_pool(config: &PoolConfig) -> Result<MySqlPool, PoolConnError> {
+    let (host, port) = if let Some(ssh) = &config.ssh {
+        let target_addr = format!("{}:{}", config.host, config.port);
+        let ssh_tunnel = SshTunnel::new_by_ssh(ssh.clone(), target_addr)?;
+        let (port, mut receiver) = ssh_tunnel.open_tunnel().await?;
+        tokio::spawn(async move {
+            while let Some(msg) = receiver.recv().await {
+                match msg {
+                    ForwarderMessage::LocalAcceptError(e) => {
+                        error!("[ssh-tunnel] local accept error: {:?}", e)
+                    },
+                    ForwarderMessage::LocalAcceptSuccess(s) => {
+                        debug!("[ssh-tunnel] local accept success: {}", s)
+                    },
+                    ForwarderMessage::LocalReadEof(addr) => {
+                        debug!("[ssh-tunnel] local read eof: {}", addr);
+                    },
+                    ForwarderMessage::TunnelChannelReadEof(addr) => {
+                        debug!("[ssh-tunnel] tunnel channel read eof: {}", addr);
+                    },
+                    ForwarderMessage::Error((addr, e)) => {
+                        error!("[ssh-tunnel] tunnel err: {} {:?}", addr, e)
+                    },
+                }
+            }
+        });
+        ("127.0.0.1", port)
+    } else {
+        (config.host.as_str(), config.port)
+    };
     let mut connect_opts = MySqlConnectOptions::new()
-        .host(&config.host)
-        .port(config.port)
+        .host(host)
+        .port(port)
         .username(&config.username)
         .password(&config.password)
         .charset(&config.charset)
@@ -122,45 +177,83 @@ fn connect_pool(config: PoolConfig) -> Result<MySqlPool, PoolConnError> {
     Ok(pool_mysql)
 }
 
-static MYSQL_POOLS: OnceLock<MySqlPools> = OnceLock::new();
+static POOL_CONFIGS: OnceLock<Configs> = OnceLock::new();
+static POOLS: OnceLock<Mutex<HashMap<String, Arc<MySqlPool>>>> = OnceLock::new();
+
+#[derive(Debug)]
+struct Configs {
+    default:     String,
+    config_hmap: HashMap<String, PoolConfig>,
+    ssh_hmap:    HashMap<String, Arc<Ssh>>,
+}
 
 /// mysql数据连接池的管理
 #[derive(Debug, Default)]
-pub struct MySqlPools {
-    default:   Option<Arc<MySqlPool>>,
-    pool_hmap: HashMap<String, Arc<MySqlPool>>,
-}
+pub struct MySqlPools {}
 
 impl MySqlPools {
     pub fn init_pools(
         config_file: impl AsRef<Path> + std::fmt::Debug,
     ) -> Result<(), PoolConnError> {
-        if MYSQL_POOLS.get().is_some() {
+        if POOLS.get().is_some() {
             return Ok(());
         }
         let config_hmap = conn_config_from_file(config_file)?;
-        let mut pools = MySqlPools::default();
-        for (key, config) in config_hmap {
-            let default = config.default;
-            let pool_mysql = Arc::new(connect_pool(config)?);
-            pools.pool_hmap.insert(key.to_owned(), pool_mysql.clone());
-            if let Some(default) = default {
-                if default {
-                    pools.default = Some(pool_mysql);
-                }
+        let mut default = String::new();
+        let mut ssh_hmap = HashMap::new();
+        for (key, config) in config_hmap.iter() {
+            if config.default {
+                default = key.clone();
+            }
+            if let Some(ssh) = &config.ssh {
+                ssh_hmap.insert(key.clone(), Arc::new(ssh.clone()));
             }
         }
-        MYSQL_POOLS.set(pools).unwrap();
+        let configs = Configs {
+            default,
+            config_hmap,
+            ssh_hmap,
+        };
+
+        POOL_CONFIGS.set(configs).unwrap();
+        POOLS.set(Default::default()).unwrap();
+
         Ok(())
     }
 
-    pub fn pool() -> Arc<MySqlPool> {
-        MYSQL_POOLS.get().unwrap().default.as_ref().unwrap().clone()
+    pub async fn pool(key: &str) -> Result<Arc<MySqlPool>, PoolConnError> {
+        let pool_configs = POOL_CONFIGS.get().unwrap();
+        if let Some(config) = pool_configs.config_hmap.get(key) {
+            let pools = POOLS.get().unwrap();
+            let mut pools = pools.lock().await;
+            let pool = if let Some(pool) = pools.get(key) {
+                pool.clone()
+            } else {
+                let pool = connect_pool(config).await?;
+                let pool = Arc::new(pool);
+                pools.insert(key.to_owned(), pool.clone());
+                pool
+            };
+            drop(pools);
+            Ok(pool)
+        } else {
+            Err(PoolConnError::KeyNotExist(key.to_string()))
+        }
     }
 
-    pub fn by_key(key: &str) -> Arc<MySqlPool> {
-        let pools = MYSQL_POOLS.get().unwrap();
-        pools.pool_hmap.get(key).unwrap().clone()
+    pub async fn pool_default() -> Result<Arc<MySqlPool>, PoolConnError> {
+        let pool_configs = POOL_CONFIGS.get().unwrap();
+        Self::pool(&pool_configs.default).await
+    }
+
+    pub fn pool_ssh(key: &str) -> Arc<Ssh> {
+        POOL_CONFIGS
+            .get()
+            .unwrap()
+            .ssh_hmap
+            .get(key)
+            .unwrap()
+            .clone()
     }
 }
 
@@ -169,22 +262,56 @@ mod tests {
 
     use std::sync::Arc;
 
-    use super::conn_config_from_file;
-    use crate::mysqlx::{MySqlPools, MYSQL_POOLS};
+    use sqlx::MySqlPool;
+
+    use crate::mysqlx::{conn_config_from_file, MySqlPools};
+    use crate::mysqlx_test_pool::init_test_mysql_pools;
 
     #[test]
     fn test_read_conn_config() {
-        let config_hm = conn_config_from_file("./_cfg/c-db-rs.yaml");
+        let config_hm = conn_config_from_file("./_data/db-conn.yaml");
         println!("{:#?}", config_hm);
     }
 
     #[tokio::test]
     async fn test_init() {
-        MySqlPools::init_pools("./_cfg/c-db-rs.yaml").unwrap();
-        let arc_count = Arc::strong_count(MYSQL_POOLS.get().unwrap().default.as_ref().unwrap());
+        MySqlPools::init_pools("./_data/db-conn.yaml").unwrap();
+        let pool = MySqlPools::pool_default().await.unwrap();
+        let arc_count = Arc::strong_count(&pool);
         println!("count: {} count==2: {}", arc_count, arc_count == 2);
-        let pool = MySqlPools::pool();
+        let pool = MySqlPools::pool_default().await.unwrap();
         let arc_count = Arc::strong_count(&pool);
         println!("count: {} count==3: {}", arc_count, arc_count == 3);
+    }
+
+    async fn query_test(pool: &MySqlPool) {
+        let sql = "SHOW VARIABLES LIKE 'secure_file_priv';";
+        let r = sqlx::query_as::<_, (String, String)>(sql)
+            .fetch_one(pool)
+            .await;
+        println!("{:?}", r)
+    }
+
+    #[tokio::test]
+    async fn test_ssh_yaml() {
+        init_test_mysql_pools();
+        // let pool = MySqlPools::by_key("ssh-db-password");
+        // query_test(pool.as_ref()).await;
+
+        let pool = MySqlPools::pool("ssh-db-key-pair").await.unwrap();
+        query_test(pool.as_ref()).await;
+    }
+
+    #[tokio::test]
+    async fn test_ssh_toml() {
+        MySqlPools::init_pools("./_data/db-conn.toml").unwrap();
+        // let pool = MySqlPools::by_key("ssh-db-password");
+        // query_test(pool.as_ref()).await;
+        //
+        let pool = MySqlPools::pool("local-db").await.unwrap();
+        query_test(pool.as_ref()).await;
+
+        let pool = MySqlPools::pool("ssh-db-key-pair").await.unwrap();
+        query_test(pool.as_ref()).await;
     }
 }

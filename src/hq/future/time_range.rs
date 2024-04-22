@@ -526,14 +526,16 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_list_from_db() {
         init_test_mysql_pools();
-        let r = time_range_list_from_db(MySqlPools::pool()).await;
+        let r = time_range_list_from_db(MySqlPools::pool_default().await.unwrap()).await;
         println!("{:?}", r)
     }
 
     async fn print_time_range(breed: &str) {
         println!("============ {} ===============", breed);
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         println!("times_vec: {:?}", time_range.times_vec);
         println!("has_night: {}", time_range.has_night);
@@ -590,7 +592,9 @@ mod tests {
 
     async fn test_next_minute(breed: &str, results: &[(&str, &str)]) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         for (source, target) in results {
             let source = NaiveDateTime::parse_from_str(source, "%Y-%m-%d %H:%M:%S").unwrap();
@@ -757,7 +761,9 @@ mod tests {
 
     async fn print_day_minutes(breed: &str, day: &NaiveDate) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         let (minutes, trade_date) = time_range.day_minutes(day);
         for (idx, minute) in minutes.iter().enumerate() {
@@ -803,7 +809,9 @@ mod tests {
 
     async fn print_next_close_time_range(breeds: &[&str]) {
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let mut map1 = HashMap::new();
         let mut map2 = HashMap::new();
 
@@ -849,7 +857,9 @@ mod tests {
     async fn test_next_close_time(breed: &str, results: &[(&str, &str)]) {
         println!("========= {} ============", breed);
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         for (src, target) in results {
             let src_time = NaiveDateTime::parse_from_str(src, "%Y-%m-%d %H:%M:%S").unwrap();
@@ -873,7 +883,9 @@ mod tests {
     async fn test_next_close_time_all(breed: &str, day: &NaiveDate) {
         println!("========= {} ============", breed);
         init_test_mysql_pools();
-        init_from_db(MySqlPools::pool()).await.unwrap();
+        init_from_db(MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
         let time_range = time_range_by_breed(breed).unwrap();
         let minutes = day_all_minutes(day);
         for (idx, minute) in minutes.iter().enumerate() {

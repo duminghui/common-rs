@@ -157,8 +157,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_1() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "IC";
         let tx_ranges = "[(931,1130),(1301,1500)]";
@@ -168,8 +172,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_2() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "TF";
         let tx_ranges = "[(931,1130),(1301,1515)]";
@@ -179,8 +187,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_3() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "AP";
         let tx_ranges = "[(901,1015),(1031,1130),(1331,1500)]";
@@ -190,8 +202,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_4() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "a";
         let tx_ranges = "[(2101,2300),(901,1015),(1031,1130),(1331,1500)]";
@@ -201,8 +217,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_5() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "ag";
         let tx_ranges = "[(2101,230),(901,1015),(1031,1130),(1331,1500)]";
@@ -212,8 +232,12 @@ mod tests {
     #[tokio::test]
     async fn test_time_range_6() {
         init_test_mysql_pools();
-        TxTimeRangeData::init(&MySqlPools::pool()).await.unwrap();
-        TradingDayUtil::init(&MySqlPools::pool()).await.unwrap();
+        TxTimeRangeData::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
+        TradingDayUtil::init(&MySqlPools::pool_default().await.unwrap())
+            .await
+            .unwrap();
 
         let breed = "al";
         let tx_ranges = "[(2101,100),(901,1015),(1031,1130),(1331,1500)]";

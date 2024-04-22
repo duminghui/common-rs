@@ -7,7 +7,7 @@ use crate::human::HumanCountFixPad;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
-    #[error("Sql: [{0}]\nerr: {1}")]
+    #[error("Sql: [\n{0}\n]\nerr: {1}")]
     Sqlx(String, sqlx::Error),
 }
 

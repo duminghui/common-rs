@@ -73,8 +73,8 @@ where
 
     let mut pb_task_vec = vec![pb_progress.clone()];
 
-    let pb_idx_padding = (parallel_limit.checked_ilog10().unwrap_or_default() + 1) as usize;
-    let idx_padding = (data_len.checked_ilog10().unwrap_or_default() + 1) as usize;
+    let pb_idx_padding = parallel_limit.checked_ilog10().unwrap_or_default() as usize + 1;
+    let idx_padding = data_len.checked_ilog10().unwrap_or_default() as usize + 1;
 
     for i in 1..=parallel_limit {
         let pb = m
@@ -137,7 +137,7 @@ where
     let join_send_handler = tokio::spawn(async move {
         for (data_idx, data) in data_vec.into_iter().enumerate() {
             if let Err(err) = tx.send((data_idx + 1, data)).await {
-                error!("{} send error: {}", par_flag_async, err);
+                error!("{} send data to parallel err: {}", par_flag_async, err);
                 break;
             }
         }
