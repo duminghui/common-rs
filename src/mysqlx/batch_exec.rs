@@ -143,7 +143,6 @@ impl BatchExec {
         let lock = self.lock.clone();
         let lock = lock.lock().await;
 
-        let start = Instant::now();
         let mut exec_info = BatchExecInfo::default();
 
         let entity_len = self.entity_map.len();
@@ -155,6 +154,8 @@ impl BatchExec {
             drop(lock);
             return Ok(exec_info);
         }
+
+        let start = Instant::now();
 
         let pool = &*self.pool.clone();
 

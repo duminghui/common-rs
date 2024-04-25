@@ -1,5 +1,7 @@
 #[cfg(feature = "cell")]
 pub mod cell;
+#[cfg(any(feature = "csv", feature = "csv-zip"))]
+pub mod csv;
 pub mod eyre_ext;
 #[cfg(feature = "file")]
 pub mod file;

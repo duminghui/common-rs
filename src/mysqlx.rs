@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use eyre::eyre;
-use log::{debug, error};
+use log::{debug, error, trace};
 use serde::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlSslMode};
 use sqlx::{ConnectOptions, Executor, MySqlPool};
@@ -112,7 +112,7 @@ async fn connect_pool(config: &PoolConfig) -> Result<MySqlPool, PoolConnError> {
                         error!("[ssh-tunnel] local accept error: {:?}", e)
                     },
                     ForwarderMessage::LocalAcceptSuccess(s) => {
-                        debug!("[ssh-tunnel] local accept success: {}", s)
+                        trace!("[ssh-tunnel] local accept success: {}", s)
                     },
                     ForwarderMessage::LocalReadEof(addr) => {
                         debug!("[ssh-tunnel] local read eof: {}", addr);
