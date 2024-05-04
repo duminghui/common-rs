@@ -203,7 +203,7 @@ impl MySqlPools {
         let mut ssh_hmap = HashMap::new();
         for (key, config) in config_hmap.iter() {
             if config.default {
-                default = key.clone();
+                default.clone_from(key);
             }
             if let Some(ssh) = &config.ssh {
                 ssh_hmap.insert(key.clone(), Arc::new(ssh.clone()));
