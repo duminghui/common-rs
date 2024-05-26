@@ -18,7 +18,7 @@ collation = "utf8_general_ci"
 tbl-database = "gp-swindex"
 tbl-name = "tbl-tmp-3"
 tbl-private-key = ["person-id"]
-tbl-index = [["person-id-2", "person-id"], ["person-id-3"]]
+tbl-index = [["person-id", "person-id-2"], ["person-id-3"]]
 person-id = { type = "VARCHAR(60)", not-null = true, default = "", comment = "1" }
 person-id-2 = { type = "VARCHAR(60)", not-null = true, default = "", comment = "2" }
 person-id-3 = { type = "VARCHAR(60)", not-null = true, comment = "3" }

@@ -1,0 +1,14 @@
+[formatting]
+array_trailing_comma = false
+array_auto_expand = false
+array_auto_collapse = true
+trailing_newline = true
+reorder_keys = false
+reorder_arrays = true
+
+[[rule]]
+include = ["**/Cargo.toml"]
+keys = ["*-dependencies", "*.*.dependencies", "*.dependencies", "dependencies"]
+
+[rule.formatting]
+reorder_keys = true
