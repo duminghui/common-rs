@@ -53,6 +53,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(unused)]
     use std::borrow::Cow;
     use std::path::{Path, PathBuf};
 

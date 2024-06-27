@@ -69,11 +69,9 @@ impl LoadDataInfile {
             ","
         };
         writeln!(s, "    TERMINATED BY '{}'", fields_terminated)?;
-        let ignore_rows = if let Some(ignore_rows) = self.ignore_rows {
-            ignore_rows
-        } else {
-            0
-        };
+
+        let ignore_rows = self.ignore_rows.unwrap_or_default();
+
         writeln!(s, "  IGNORE {} ROWS", ignore_rows)?;
 
         let col_map = self
